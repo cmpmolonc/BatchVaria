@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+/doc/
+/Meta/
+
+# Build and check artefacts
+*.Rcheck/
+*.BiocCheck/
+*.tar.gz
