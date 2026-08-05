@@ -1,0 +1,28 @@
+citHeader("To cite BatchVaria in publications, please use:")
+
+bibentry(
+    bibtype = "Article",
+    title = paste(
+        "BatchVaria: a variance-aware framework for evaluating",
+        "batch correction in high-dimensional omics data"
+    ),
+    author = c(
+        person(
+            given = "Nicholas", family = "Moir",
+            comment = c(ORCID = "0000-0001-6957-932X")
+        ),
+        person(given = "K.", family = "Sherwood"),
+        person(given = "T. I.", family = "Simpson")
+    ),
+    journal = "bioRxiv",
+    year = "2026",
+    doi = "10.64898/2026.05.07.721996",
+    url = "https://doi.org/10.64898/2026.05.07.721996",
+    note = "Preprint",
+    textVersion = paste(
+        "Moir N, Sherwood K, Simpson TI (2026).",
+        "BatchVaria: a variance-aware framework for evaluating batch",
+        "correction in high-dimensional omics data.",
+        "bioRxiv. doi:10.64898/2026.05.07.721996"
+    )
+)

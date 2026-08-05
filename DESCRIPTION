@@ -1,0 +1,56 @@
+Package: BatchVaria
+Title: Variance-Aware Evaluation of Batch Correction
+Version: 0.99.0
+Authors@R: 
+	person(
+        given = "Nicholas",
+        family = "Moir",
+        email = "nicholas.moir@ed.ac.uk",
+        role = c("aut", "cre"),
+        comment = c(ORCID = "0000-0001-6957-932X")
+    )
+Description: A variance-aware framework for evaluating batch correction in omics data. Provides a SummarizedExperiment-based container that records correction and variance-decomposition provenance, harmonises multiple variance-profiling engines into a common tidy schema, and supports before/after comparison of technical and biological variance. 
+License: Artistic-2.0
+Encoding: UTF-8
+Depends: R (>= 4.6.0), SummarizedExperiment
+Roxygen: list(markdown = TRUE)
+biocViews:
+    GeneExpression,
+    RNASeq,
+    BatchEffect,
+    StatisticalMethod,
+    Software,
+    Normalization,
+    QualityControl,
+    Transcriptomics,
+    DataRepresentation,
+    Visualization,
+    Sequencing,
+    Coverage,
+    MultipleComparison
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    BiocStyle
+VignetteBuilder: knitr
+Imports:
+    BiocGenerics,
+    S4Vectors,
+    rlang,
+    methods,
+    variancePartition,
+    stats,
+    ggplot2,
+    FNN,
+    reformulas,
+    sva,
+    tidyr,
+    tidyselect,
+    dplyr,
+    grid,
+    utils
+Config/testthat/edition: 3
+URL: https://github.com/cmpmolonc/BatchVaria
+BugReports: https://github.com/cmpmolonc/BatchVaria/issues
+Config/roxygen2/version: 8.1.0
