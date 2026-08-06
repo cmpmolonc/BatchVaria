@@ -95,14 +95,19 @@ runCorrection <- function(
 
     ## ---- Update correction ledger --------------------------------------
 
+    ## Total variance before and after correction. Recorded here because
+    ## variance fractions are compositional: without the denominator a
+    ## rising fraction cannot be distinguished from preserved signal.
     entry <- list(
-        method       = method,
-        assay_in     = assayName,
-        assay_out    = newAssayName,
-        batch        = batch,
-        covariates   = covariates,
-        params       = list(...),
-        timestamp    = Sys.time()
+        method             = method,
+        assay_in           = assayName,
+        assay_out          = newAssayName,
+        batch              = batch,
+        covariates         = covariates,
+        params             = list(...),
+        total_variance_in  = .assayTotalVariance(object, assayName),
+        total_variance_out = .assayTotalVariance(object, newAssayName),
+        timestamp          = Sys.time()
     )
 
     if (is.null(metadata(object)$correction_history)) {
