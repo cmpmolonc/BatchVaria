@@ -11,6 +11,21 @@
 #'
 #' @return Updated BatchVariaData object
 #'
+#' @details
+#' Features with zero or non-finite variance are excluded from every
+#' engine before profiling, and the number excluded is reported once per
+#' assay. Such features are common in unfiltered count data and carry no
+#' information for a variance decomposition; retaining them causes
+#' engine-specific failures rather than engine-specific answers.
+#'
+#' Each assay/method combination is attempted independently. If one engine
+#' fails, a warning names the assay, the method and the reason, and
+#' profiling continues with the remaining combinations. An error is raised
+#' only when every attempt fails, so a partial run always returns the
+#' results that succeeded rather than discarding them.
+#'
+#' @seealso \code{\link{assayVariance}}, \code{\link{varianceHistory}}
+#'
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
@@ -61,37 +76,82 @@ profileVariance <- function(
 
     # --------------------------------
     # Loop over assays
+    #
+    # Each assay/method combination is attempted independently: one engine
+    # failing must not discard the results of the engines that succeeded,
+    # nor abandon the remaining assays.
     # --------------------------------
+    nAttempted <- 0L
+    nSucceeded <- 0L
+
     for (assayNameI in selected_assays) {
         assayMatrix <- SummarizedExperiment::assay(object, assayNameI)
         assayMatrix <- as.matrix(assayMatrix)
 
+        ## Screen zero-variance features once per assay, so that every
+        ## engine decomposes the same feature set and the exclusion is
+        ## reported once rather than once per method.
+        assayMatrix <- tryCatch(
+            .dropConstantFeatures(assayMatrix, assayName = assayNameI),
+            error = function(e) {
+                warning(
+                    "Skipping assay '", assayNameI, "': ",
+                    conditionMessage(e),
+                    call. = FALSE
+                )
+                NULL
+            }
+        )
+
+        if (is.null(assayMatrix)) {
+            nAttempted <- nAttempted + length(methods)
+            next
+        }
+
         for (method in methods) {
+            nAttempted <- nAttempted + 1L
             engine_fun <- .getVarianceEngine(method)
 
-            summaryDf <- engine_fun(
-                assayMatrix        = assayMatrix,
-                modelMatrix = modelMatrix,
-                formula      = formula,
-                sampleData     = sampleData,
-                ...
+            summaryDf <- tryCatch(
+                {
+                    out <- engine_fun(
+                        assayMatrix = assayMatrix,
+                        modelMatrix = modelMatrix,
+                        formula = formula,
+                        sampleData = sampleData,
+                        ...
+                    )
+
+                    # ------------------------------------
+                    # Enforce variance result contract
+                    # ------------------------------------
+                    requiredCols <- c("source", "term", "variance_fraction")
+
+                    if (!is.data.frame(out)) {
+                        stop("engine must return a data.frame")
+                    }
+
+                    if (!all(requiredCols %in% colnames(out))) {
+                        stop(
+                            "engine returned invalid output. Required ",
+                            "columns: ", paste(requiredCols, collapse = ", ")
+                        )
+                    }
+
+                    out
+                },
+                error = function(e) {
+                    warning(
+                        "Variance method '", method, "' failed for assay '",
+                        assayNameI, "': ", conditionMessage(e),
+                        call. = FALSE
+                    )
+                    NULL
+                }
             )
 
-            # --------------------------------
-            # Enforce variance result contract
-            # --------------------------------
-            requiredCols <- c("source", "term", "variance_fraction")
-
-            if (!is.data.frame(summaryDf)) {
-                stop("Variance engine '", method, "' must return a data.frame")
-            }
-
-            if (!all(requiredCols %in% colnames(summaryDf))) {
-                stop(
-                    "Variance engine '", method,
-                    "' returned invalid output. Required columns: ",
-                    paste(requiredCols, collapse = ", ")
-                )
+            if (is.null(summaryDf)) {
+                next
             }
 
             # --------------------------------
@@ -104,7 +164,17 @@ profileVariance <- function(
                 result = summaryDf,
                 method = method
             )
+
+            nSucceeded <- nSucceeded + 1L
         }
+    }
+
+    if (nSucceeded == 0L) {
+        stop(
+            "All ", nAttempted, " variance profiling attempt",
+            if (nAttempted == 1L) "" else "s", " failed; ",
+            "the reason for each was reported above"
+        )
     }
 
     invisible(object)

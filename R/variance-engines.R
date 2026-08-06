@@ -10,6 +10,42 @@ availableVarianceMethods <- function() {
     c("pca", "anova", "variancePartition")
 }
 
+## Features with zero or non-finite variance carry no information for a
+## variance decomposition, and each engine fails differently on them:
+## prcomp(scale. = TRUE) cannot rescale a constant column, the anova
+## engine divides by a zero total sum of squares, and variancePartition
+## drops them silently inside colMeans(na.rm = TRUE). Excluding them once,
+## up front, makes the three engines agree on which features were used.
+##
+## All-zero features are routine in unfiltered count data, so this is the
+## common case rather than an edge case.
+.dropConstantFeatures <- function(assayMatrix, assayName = NULL) {
+    featureVar <- .rowVars(assayMatrix)
+    keep <- is.finite(featureVar) & featureVar > 0
+
+    where <- if (is.null(assayName)) "" else paste0(" in assay '", assayName, "'")
+
+    if (!any(keep)) {
+        stop(
+            "All ", nrow(assayMatrix), " features", where,
+            " have zero or non-finite variance; there is no variance to ",
+            "decompose"
+        )
+    }
+
+    nDropped <- sum(!keep)
+    if (nDropped > 0) {
+        warning(
+            nDropped, " of ", nrow(assayMatrix), " features", where,
+            " have zero or non-finite variance and were excluded from ",
+            "variance profiling",
+            call. = FALSE
+        )
+    }
+
+    assayMatrix[keep, , drop = FALSE]
+}
+
 .computePCAVariance <- function(assayMatrix, modelMatrix = NULL, formula = NULL, sampleData = NULL, ...) {
     stopifnot(
         is.matrix(assayMatrix)
@@ -59,7 +95,23 @@ availableVarianceMethods <- function() {
     )
 
     # Fractions
-    residual_fraction <- mean(rss / tss, na.rm = TRUE)
+    #
+    # A feature with zero total sum of squares gives rss / tss == Inf, and
+    # na.rm = TRUE does not remove Inf -- one such feature would drive the
+    # mean to Inf and the model fraction to -Inf. profileVariance() screens
+    # these out before calling any engine; this guard keeps the engine
+    # correct when it is called directly.
+    ratio <- rss / tss
+    usable <- is.finite(ratio)
+
+    if (!any(usable)) {
+        stop(
+            "No features with non-zero total variance; ",
+            "cannot compute an anova variance decomposition"
+        )
+    }
+
+    residual_fraction <- mean(ratio[usable])
     model_fraction <- 1 - residual_fraction
 
     # Canonical variance-summary output

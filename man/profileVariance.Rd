@@ -34,10 +34,26 @@ Updated BatchVariaData object
 \description{
 Profile sources of variance in expression data
 }
+\details{
+Features with zero or non-finite variance are excluded from every
+engine before profiling, and the number excluded is reported once per
+assay. Such features are common in unfiltered count data and carry no
+information for a variance decomposition; retaining them causes
+engine-specific failures rather than engine-specific answers.
+
+Each assay/method combination is attempted independently. If one engine
+fails, a warning names the assay, the method and the reason, and
+profiling continues with the remaining combinations. An error is raised
+only when every attempt fails, so a partial run always returns the
+results that succeeded rather than discarding them.
+}
 \examples{
 set.seed(1)
 bv <- exampleBatchVaria(nGenes = 100)
 bv <- profileVariance(bv, ~batch, methods = "anova")
 length(varianceHistory(bv))
 
+}
+\seealso{
+\code{\link{assayVariance}}, \code{\link{varianceHistory}}
 }
