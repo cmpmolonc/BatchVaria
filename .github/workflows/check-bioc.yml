@@ -1,0 +1,107 @@
+## Builds and checks BatchVaria against Bioconductor devel.
+##
+## Runs inside the Bioconductor devel container rather than on a bare
+## runner with r-lib/actions. The Single Package Builder builds in that
+## same image, so a pass here is evidence about the environment that
+## actually gates review, not an approximation of it: same R version, same
+## system libraries, same Bioconductor dependency versions.
+
+name: check-bioc
+
+on:
+  push:
+    branches: [main, devel]
+  pull_request:
+    branches: [main, devel]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container: bioconductor/bioconductor_docker:devel
+
+    env:
+      R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
+      ## Suggests must be installed: limma backs a registered correction
+      ## method, and the vignette and tests need it. Skipping them here
+      ## would report a pass the Single Package Builder would not.
+      _R_CHECK_FORCE_SUGGESTS_: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Query Bioconductor version
+        id: bioc
+        run: |
+          echo "version=$(Rscript -e 'cat(as.character(BiocManager::version()))')" \
+            >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/lib/R/host-site-library
+          key: >-
+            ${{ runner.os }}-bioc-${{ steps.bioc.outputs.version }}-${{
+            hashFiles('DESCRIPTION') }}
+          restore-keys: |
+            ${{ runner.os }}-bioc-${{ steps.bioc.outputs.version }}-
+
+      - name: Install dependencies
+        run: |
+          BiocManager::install(c("BiocCheck", "rcmdcheck"), ask = FALSE)
+          remotes::install_deps(dependencies = TRUE, repos = BiocManager::repositories())
+        shell: Rscript {0}
+
+      - name: Session info
+        run: |
+          options(width = 100)
+          cat("Bioconductor:", as.character(BiocManager::version()), "\n")
+          print(sessionInfo())
+        shell: Rscript {0}
+
+      - name: Build source tarball
+        run: R CMD build --keep-empty-dirs --no-resave-data .
+        shell: bash
+
+      - name: R CMD check
+        run: |
+          tarball <- list.files(pattern = "\\.tar\\.gz$")[1]
+          ## The manual is built rather than skipped: the Single Package
+          ## Builder builds it, so malformed Rd that passes --no-manual
+          ## would fail there and not here.
+          res <- rcmdcheck::rcmdcheck(
+              tarball,
+              args = "--timings",
+              error_on = "warning",
+              check_dir = "check"
+          )
+        shell: Rscript {0}
+
+      - name: BiocCheck
+        run: |
+          tarball <- list.files(pattern = "\\.tar\\.gz$")[1]
+          ## quit_with_status makes an ERROR fail the job. Notes and
+          ## warnings are reported in the log and left for a human to
+          ## weigh, since several are advisory rather than blocking.
+          BiocCheck::BiocCheck(
+              tarball,
+              `new-package` = TRUE,
+              `quit-with-status` = TRUE
+          )
+        shell: Rscript {0}
+
+      - name: Upload check results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-results
+          path: |
+            check
+            *.BiocCheck
+          retention-days: 14
