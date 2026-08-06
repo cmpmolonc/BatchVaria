@@ -47,15 +47,35 @@ recordVariance <- function(
     assayName,
     formula,
     result,
-    method = "variancePartition") {
+    method = "variancePartition"
+) {
+    stopifnot(is(object, "BatchVariaData"))
+
+    ## recordVariance() is exported, so it is a way into the ledger that
+    ## does not pass through profileVariance(). Enforce the result contract
+    ## here rather than only in the caller, so that nothing reaches the
+    ## ledger which the summary and plotting layers cannot read.
+    .validateVarianceSummary(as.data.frame(result))
+
     vh <- metadata(object)$variance_history
 
-    if (any(vapply(vh, function(x) {
-        identical(x$assay, assayName) &&
-            identical(x$formula, formula) &&
-            identical(x$method, method)
-    }, logical(1)))) {
-        warning("Variance result already recorded for this assay/formula/method")
+    ## Keyed on the canonical formula rather than the formula object, so
+    ## that ~ batch + group and ~ group + batch are recognised as the same
+    ## model. Consumers resolve on (assay, method, formula) too, so
+    ## distinct formulas coexist without colliding.
+    formulaKey <- .formulaKey(formula)
+
+    if (length(.matchLedger(
+        vh,
+        assayName = assayName,
+        method = method,
+        formulaKey = formulaKey
+    )) > 0) {
+        warning(
+            "Variance result already recorded for assay '", assayName,
+            "', method '", method, "', formula ", formulaKey,
+            "; the newer result supersedes it"
+        )
     }
 
     if (is.null(vh)) {
@@ -65,6 +85,7 @@ recordVariance <- function(
     vh[[length(vh) + 1]] <- list(
         assay = assayName,
         formula = formula,
+        formula_key = formulaKey,
         method = method,
         result = result,
         timestamp = Sys.time()
@@ -77,15 +98,43 @@ recordVariance <- function(
 
 #' Create variance summary tables
 #'
-#' Generates variance percentage table and delta vs raw table
-#' from the variance ledger.
+#' Generates a variance percentage table and a delta-versus-baseline table
+#' from the variance ledger, for a single method and model formula.
 #'
 #' @importFrom rlang .data
 #' @param object BatchVariaData object
 #' @param assays Character vector of assay names to include
-#' @param formatDelta Logical; if TRUE, format delta with arrows
+#' @param method Variance method to summarise. Required when the ledger
+#'   holds results for more than one method.
+#' @param formula Model formula to summarise. Required when the chosen
+#'   method has results for more than one formula.
+#' @param baseline Assay that deltas are computed against. When
+#'   \code{NULL} (the default) it is inferred from the correction ledger
+#'   -- the assay the corrected assays were derived from -- falling back to
+#'   \code{"raw"} if present. If no baseline can be determined the percent
+#'   table is still returned and \code{delta} is \code{NULL}.
+#' @param formatDelta Logical; if TRUE, format delta with signs
 #' @param digits Number of digits for rounding
-#' @return list with percent table and delta table
+#' @return list with \code{percent}, \code{delta} and the \code{baseline}
+#'   the delta was computed against. \code{delta} is \code{NULL} when no
+#'   baseline could be determined.
+#'
+#' @details
+#' A variance table describes one decomposition. Results from different
+#' engines are not commensurable -- \code{pca} reports variance along
+#' principal axes while \code{anova} and \code{variancePartition} report
+#' variance attributable to model terms -- so stacking them in a single
+#' table produces columns that sum to well over 100\%. Likewise, the same
+#' assay profiled under two formulas yields two different decompositions.
+#'
+#' \code{method} and \code{formula} therefore select exactly one
+#' decomposition. Either may be omitted when the ledger is unambiguous;
+#' when it is not, the error lists what is available rather than choosing
+#' silently. Where an assay has been profiled repeatedly under the same
+#' key, the most recent result is used.
+#'
+#' @seealso \code{\link{assayVariance}} for the total variance that these
+#'   percentages are expressed relative to
 #'
 #' @examples
 #' set.seed(1)
@@ -97,6 +146,9 @@ recordVariance <- function(
 varianceTable <- function(
     object,
     assays = NULL,
+    method = NULL,
+    formula = NULL,
+    baseline = NULL,
     formatDelta = FALSE,
     digits = 2
 ) {
@@ -108,26 +160,68 @@ varianceTable <- function(
         stop("No variance history found. Run profileVariance() first.")
     }
 
-    # Build long table
-    df_list <- lapply(vh, function(entry) {
-        df <- as.data.frame(entry$result)
-        df$assay <- entry$assay
-        df
-    })
+    ## Resolve to exactly one decomposition before reading any results.
+    method <- .resolveMethod(vh, method)
+    formulaKey <- .resolveFormulaKey(vh, method, formula)
 
-    df_long <- do.call(rbind, df_list)
+    profiled <- unique(vapply(
+        .matchLedger(vh, method = method, formulaKey = formulaKey),
+        function(x) x$assay,
+        character(1)
+    ))
 
-    if (!is.null(assays)) {
-        df_long <- df_long[df_long$assay %in% assays, ]
+    if (is.null(assays)) {
+        assays <- profiled
     } else {
-        assays <- unique(df_long$assay)
+        missing_assays <- setdiff(assays, profiled)
+        if (length(missing_assays) > 0) {
+            stop(
+                "No variance results recorded for assay(s) ",
+                paste(missing_assays, collapse = ", "),
+                " with method '", method, "' and formula ", formulaKey
+            )
+        }
+    }
+
+    ## An explicitly named baseline that is absent is a caller error. A
+    ## baseline that simply cannot be inferred is not: the percent table
+    ## does not depend on one, so report it and omit the delta.
+    if (!is.null(baseline) && !baseline %in% assays) {
+        stop(
+            "Baseline assay '", baseline,
+            "' is not among the assays being summarised: ",
+            paste(assays, collapse = ", ")
+        )
+    }
+
+    baseline <- .resolveBaseline(object, assays, baseline)
+
+    ## One result per assay: .getVarianceResult() resolves repeat
+    ## profiling of the same key by recency, so each (assay, term) pair
+    ## appears exactly once and the pivot below cannot produce list-columns.
+    df_long <- do.call(rbind, lapply(assays, function(a) {
+        res <- as.data.frame(
+            .getVarianceResult(object, a, method, formulaKey)
+        )
+        data.frame(
+            term = res$term,
+            assay = a,
+            percent = res$variance_fraction * 100,
+            stringsAsFactors = FALSE
+        )
+    }))
+
+    duplicated_keys <- duplicated(df_long[, c("term", "assay")])
+    if (any(duplicated_keys)) {
+        stop(
+            "Variance engine '", method, "' returned repeated terms for a ",
+            "single assay: ",
+            paste(unique(df_long$term[duplicated_keys]), collapse = ", ")
+        )
     }
 
     # Percent table
     percent_table <- df_long |>
-        dplyr::select("term", "assay", "variance_fraction") |>
-        dplyr::mutate(percent = .data$variance_fraction * 100) |>
-        dplyr::select(-"variance_fraction") |>
         tidyr::pivot_wider(
             names_from = "assay",
             values_from = "percent"
@@ -139,44 +233,51 @@ varianceTable <- function(
     colnames(percent_table)[1] <- "component"
 
     # Delta table
-    if (!"raw" %in% assays) {
-        stop("Delta calculation requires 'raw' assay")
-    }
-
-    raw_vals <- percent_table$raw
-    delta_table <- percent_table
-
-    for (assayName in assays) {
-        if (assayName != "raw") {
-            delta_table[[assayName]] <- percent_table[[assayName]] - raw_vals
-        }
-    }
-
-    delta_table <- delta_table |>
-        dplyr::select(-"raw")
-
-    # Optional formatting
-    if (formatDelta) {
-        format_fun <- function(x) {
-            if (is.na(x)) {
-                return(NA_character_)
-            }
-            if (round(x, digits) == 0) {
-                return("0")
-            }
-            if (x > 0) {
-                return(paste0("+", round(x, digits)))
-            }
-            ## remaining case: x < 0
-            paste0("-", round(abs(x), digits))
-        }
-        ## column 1 is 'component', so format the assay columns only
-        for (i in seq_len(ncol(delta_table))[-1L]) {
-            delta_table[[i]] <- vapply(delta_table[[i]], format_fun, character(1))
-        }
+    if (is.null(baseline)) {
+        warning(
+            "No baseline assay could be determined, so no delta table was ",
+            "produced. Name one with baseline =; the assays available are ",
+            paste(assays, collapse = ", "),
+            call. = FALSE
+        )
+        delta_table <- NULL
     } else {
+        baseline_vals <- percent_table[[baseline]]
+        delta_table <- percent_table
+
+        for (assayName in setdiff(assays, baseline)) {
+            delta_table[[assayName]] <-
+                percent_table[[assayName]] - baseline_vals
+        }
+
         delta_table <- delta_table |>
-            dplyr::mutate(dplyr::across(-"component", \(x) round(x, digits)))
+            dplyr::select(-dplyr::all_of(baseline))
+
+        # Optional formatting
+        if (formatDelta) {
+            format_fun <- function(x) {
+                if (is.na(x)) {
+                    return(NA_character_)
+                }
+                if (round(x, digits) == 0) {
+                    return("0")
+                }
+                if (x > 0) {
+                    return(paste0("+", round(x, digits)))
+                }
+                ## remaining case: x < 0
+                paste0("-", round(abs(x), digits))
+            }
+            ## column 1 is 'component', so format the assay columns only
+            for (i in seq_len(ncol(delta_table))[-1L]) {
+                delta_table[[i]] <- vapply(
+                    delta_table[[i]], format_fun, character(1)
+                )
+            }
+        } else {
+            delta_table <- delta_table |>
+                dplyr::mutate(dplyr::across(-"component", \(x) round(x, digits)))
+        }
     }
 
     percent_table <- percent_table |>
@@ -184,7 +285,8 @@ varianceTable <- function(
 
     list(
         percent = percent_table,
-        delta   = delta_table
+        delta = delta_table,
+        baseline = baseline
     )
 }
 
@@ -194,8 +296,15 @@ varianceTable <- function(
 #' @param object BatchVariaData object
 #' @param term Model term to evaluate (e.g. "batch")
 #' @param assays Assays to include
+#' @param method Variance method to summarise. Required when the ledger
+#'   holds results for more than one method.
+#' @param formula Model formula to summarise. Required when the chosen
+#'   method has results for more than one formula.
+#' @param baseline Assay that changes are computed against. Inferred from
+#'   the correction ledger when \code{NULL}.
 #'
-#' @return data.frame of variance change for a single model term vs raw
+#' @return data.frame of variance change for a single model term versus
+#'   the baseline assay
 #'
 #' @examples
 #' set.seed(1)
@@ -204,9 +313,31 @@ varianceTable <- function(
 #' varianceChange(bv, term = "residual")
 #'
 #' @export
-varianceChange <- function(object, term, assays = NULL) {
-    vt <- varianceTable(object, assays = assays)
+varianceChange <- function(
+    object,
+    term,
+    assays = NULL,
+    method = NULL,
+    formula = NULL,
+    baseline = NULL
+) {
+    vt <- varianceTable(
+        object,
+        assays = assays,
+        method = method,
+        formula = formula,
+        baseline = baseline
+    )
     delta <- vt$delta
+
+    ## Unlike the percent table, a change is meaningless without something
+    ## to change relative to.
+    if (is.null(delta)) {
+        stop(
+            "No baseline assay could be determined, so variance change ",
+            "cannot be computed. Name one with baseline ="
+        )
+    }
 
     if (!term %in% delta$component) {
         stop("Term not found in variance table: ", term)

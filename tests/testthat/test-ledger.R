@@ -54,7 +54,7 @@ test_that("varianceTable errors with empty ledger", {
     )
 })
 
-test_that("varianceTable errors if raw not included", {
+test_that("varianceTable degrades to the percent table without a baseline", {
     bv <- exampleBatchVaria()
 
     res <- data.frame(
@@ -65,9 +65,20 @@ test_that("varianceTable errors if raw not included", {
 
     bv <- recordVariance(bv, "raw_center", ~batch, res)
 
-    expect_error(
-        varianceTable(bv, assays = "raw_center"),
-        "requires 'raw'"
+    ## 'raw' exists on the object but was not profiled, so it is not among
+    ## the assays being summarised and no delta can be formed. That limits
+    ## the output rather than invalidating it.
+    expect_warning(
+        out <- varianceTable(bv, assays = "raw_center"),
+        "No baseline assay"
+    )
+    expect_setequal(out$percent$component, c("batch", "Residuals"))
+    expect_null(out$delta)
+
+    ## naming a baseline that is present makes the same call produce one
+    expect_type(
+        varianceTable(bv, assays = "raw_center", baseline = "raw_center"),
+        "list"
     )
 })
 

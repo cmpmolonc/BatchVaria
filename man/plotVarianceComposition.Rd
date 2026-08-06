@@ -4,7 +4,12 @@
 \alias{plotVarianceComposition}
 \title{Plot variance composition across model terms}
 \usage{
-plotVarianceComposition(object, assays = NULL, method = "anova")
+plotVarianceComposition(
+  object,
+  assays = NULL,
+  method = "anova",
+  formula = NULL
+)
 }
 \arguments{
 \item{object}{A \code{BatchVariaData} object.}
@@ -14,6 +19,10 @@ profiled with \code{method}.}
 
 \item{method}{Variance engine used to compute the results (default
 \code{"anova"}).}
+
+\item{formula}{Model formula to plot. Required when the chosen method
+has results for more than one formula, since a single chart can only
+show one decomposition per assay.}
 }
 \value{
 A \code{ggplot2} stacked bar chart representing the variance

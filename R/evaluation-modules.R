@@ -161,7 +161,11 @@ evaluateCorrections <- function(
 #' @param object BatchVariaData object
 #' @param assays Character vector of assay names (default: all assays)
 #' @param method Variance estimation method
-#' @param baseline Baseline assay name
+#' @param formula Model formula to compare under. Required when the chosen
+#'   method has results for more than one formula, since a delta between
+#'   decompositions of different models is not interpretable.
+#' @param baseline Baseline assay name. When \code{NULL} (the default) it
+#'   is inferred from the correction ledger, falling back to \code{"raw"}.
 #'
 #' @return data.frame with columns: assay, method, term, delta
 #'
@@ -179,7 +183,8 @@ varianceDelta <- function(
     object,
     assays = NULL,
     method = "anova",
-    baseline = "raw"
+    formula = NULL,
+    baseline = NULL
 ) {
     ## -----------------------------
     ## Input validation
@@ -187,6 +192,15 @@ varianceDelta <- function(
     if (!is(object, "BatchVariaData")) {
         stop("object must be a BatchVariaData instance")
     }
+
+    ## Deltas are only meaningful between results from the same model, so
+    ## resolve one formula for every assay rather than letting each fall
+    ## back to its own most-recent entry.
+    formulaKey <- .resolveFormulaKey(
+        S4Vectors::metadata(object)$variance_history,
+        method,
+        formula
+    )
 
     available_assays <- SummarizedExperiment::assayNames(object)
 
@@ -199,8 +213,20 @@ varianceDelta <- function(
         stop("Assays not found: ", paste(missing_assays, collapse = ", "))
     }
 
-    if (!baseline %in% assays) {
+    if (!is.null(baseline) && !baseline %in% assays) {
         stop("Baseline assay not found: ", baseline)
+    }
+
+    baseline <- .resolveBaseline(object, assays, baseline)
+
+    ## Unlike varianceTable(), this function reports nothing but deltas, so
+    ## a missing baseline is fatal rather than merely limiting.
+    if (is.null(baseline)) {
+        stop(
+            "No baseline assay could be determined. Name one with ",
+            "baseline =; the assays available are ",
+            paste(assays, collapse = ", ")
+        )
     }
 
     assays_no_base <- setdiff(assays, baseline)
@@ -220,7 +246,8 @@ varianceDelta <- function(
         base_df <- .getVarianceResult(
             object,
             assayName = baseline,
-            method = m
+            method = m,
+            formulaKey = formulaKey
         )
 
         if (!all(c("term", "variance_fraction") %in% colnames(base_df))) {
@@ -235,7 +262,8 @@ varianceDelta <- function(
             df <- .getVarianceResult(
                 object,
                 assayName = a,
-                method = m
+                method = m,
+                formulaKey = formulaKey
             )
 
             if (!all(c("term", "variance_fraction") %in% colnames(df))) {
@@ -363,7 +391,8 @@ comparePCA <- function(
 #' matrices between a baseline assay and one or more comparison assays.
 #'
 #' @param object BatchVariaData object
-#' @param baseline Baseline assay name
+#' @param baseline Baseline assay name. When \code{NULL} (the default) it
+#'   is inferred from the correction ledger, falling back to \code{"raw"}.
 #' @param assays Character vector of assays to compare (default: all assays)
 #'
 #' @return data.frame with columns: assay, correlation_change

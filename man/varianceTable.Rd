@@ -4,23 +4,59 @@
 \alias{varianceTable}
 \title{Create variance summary tables}
 \usage{
-varianceTable(object, assays = NULL, formatDelta = FALSE, digits = 2)
+varianceTable(
+  object,
+  assays = NULL,
+  method = NULL,
+  formula = NULL,
+  baseline = NULL,
+  formatDelta = FALSE,
+  digits = 2
+)
 }
 \arguments{
 \item{object}{BatchVariaData object}
 
 \item{assays}{Character vector of assay names to include}
 
-\item{formatDelta}{Logical; if TRUE, format delta with arrows}
+\item{method}{Variance method to summarise. Required when the ledger
+holds results for more than one method.}
+
+\item{formula}{Model formula to summarise. Required when the chosen
+method has results for more than one formula.}
+
+\item{baseline}{Assay that deltas are computed against. When
+\code{NULL} (the default) it is inferred from the correction ledger
+-- the assay the corrected assays were derived from -- falling back to
+\code{"raw"} if present. If no baseline can be determined the percent
+table is still returned and \code{delta} is \code{NULL}.}
+
+\item{formatDelta}{Logical; if TRUE, format delta with signs}
 
 \item{digits}{Number of digits for rounding}
 }
 \value{
-list with percent table and delta table
+list with \code{percent}, \code{delta} and the \code{baseline}
+the delta was computed against. \code{delta} is \code{NULL} when no
+baseline could be determined.
 }
 \description{
-Generates variance percentage table and delta vs raw table
-from the variance ledger.
+Generates a variance percentage table and a delta-versus-baseline table
+from the variance ledger, for a single method and model formula.
+}
+\details{
+A variance table describes one decomposition. Results from different
+engines are not commensurable -- \code{pca} reports variance along
+principal axes while \code{anova} and \code{variancePartition} report
+variance attributable to model terms -- so stacking them in a single
+table produces columns that sum to well over 100\\%. Likewise, the same
+assay profiled under two formulas yields two different decompositions.
+
+\code{method} and \code{formula} therefore select exactly one
+decomposition. Either may be omitted when the ledger is unambiguous;
+when it is not, the error lists what is available rather than choosing
+silently. Where an assay has been profiled repeatedly under the same
+key, the most recent result is used.
 }
 \examples{
 set.seed(1)
@@ -28,4 +64,8 @@ bv <- exampleBatchVaria(nGenes = 100)
 bv <- profileVariance(bv, ~batch, methods = "anova")
 varianceTable(bv)
 
+}
+\seealso{
+\code{\link{assayVariance}} for the total variance that these
+percentages are expressed relative to
 }

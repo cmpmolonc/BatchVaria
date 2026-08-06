@@ -9,7 +9,8 @@ compareCorrelations(object, baseline = "raw", assays = NULL)
 \arguments{
 \item{object}{BatchVariaData object}
 
-\item{baseline}{Baseline assay name}
+\item{baseline}{Baseline assay name. When \code{NULL} (the default) it
+is inferred from the correction ledger, falling back to \code{"raw"}.}
 
 \item{assays}{Character vector of assays to compare (default: all assays)}
 }

@@ -4,7 +4,13 @@
 \alias{varianceDelta}
 \title{Compute variance redistribution relative to baseline}
 \usage{
-varianceDelta(object, assays = NULL, method = "anova", baseline = "raw")
+varianceDelta(
+  object,
+  assays = NULL,
+  method = "anova",
+  formula = NULL,
+  baseline = NULL
+)
 }
 \arguments{
 \item{object}{BatchVariaData object}
@@ -13,7 +19,12 @@ varianceDelta(object, assays = NULL, method = "anova", baseline = "raw")
 
 \item{method}{Variance estimation method}
 
-\item{baseline}{Baseline assay name}
+\item{formula}{Model formula to compare under. Required when the chosen
+method has results for more than one formula, since a delta between
+decompositions of different models is not interpretable.}
+
+\item{baseline}{Baseline assay name. When \code{NULL} (the default) it
+is inferred from the correction ledger, falling back to \code{"raw"}.}
 }
 \value{
 data.frame with columns: assay, method, term, delta

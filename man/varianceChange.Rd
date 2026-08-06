@@ -4,7 +4,14 @@
 \alias{varianceChange}
 \title{Summarise variance change vs raw for a model term}
 \usage{
-varianceChange(object, term, assays = NULL)
+varianceChange(
+  object,
+  term,
+  assays = NULL,
+  method = NULL,
+  formula = NULL,
+  baseline = NULL
+)
 }
 \arguments{
 \item{object}{BatchVariaData object}
@@ -12,9 +19,19 @@ varianceChange(object, term, assays = NULL)
 \item{term}{Model term to evaluate (e.g. "batch")}
 
 \item{assays}{Assays to include}
+
+\item{method}{Variance method to summarise. Required when the ledger
+holds results for more than one method.}
+
+\item{formula}{Model formula to summarise. Required when the chosen
+method has results for more than one formula.}
+
+\item{baseline}{Assay that changes are computed against. Inferred from
+the correction ledger when \code{NULL}.}
 }
 \value{
-data.frame of variance change for a single model term vs raw
+data.frame of variance change for a single model term versus
+the baseline assay
 }
 \description{
 Summarise variance change vs raw for a model term

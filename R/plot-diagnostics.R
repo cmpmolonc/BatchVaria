@@ -40,7 +40,8 @@ setMethod("plotPCA", "BatchVariaData", function(
     object,
     assays = "raw",
     colourBy = "batch",
-    ...) {
+    ...
+) {
     ## -----------------------------
     ## Input validation
     ## -----------------------------
@@ -97,6 +98,9 @@ setMethod("plotPCA", "BatchVariaData", function(
 #'   profiled with \code{method}.
 #' @param method Variance engine used to compute the results (default
 #' \code{"anova"}).
+#' @param formula Model formula to plot. Required when the chosen method
+#'   has results for more than one formula, since a single chart can only
+#'   show one decomposition per assay.
 #'
 #' @return A \code{ggplot2} stacked bar chart representing the variance
 #' fractions attributed to each term in the variance model.
@@ -125,7 +129,8 @@ setMethod("plotPCA", "BatchVariaData", function(
 plotVarianceComposition <- function(
     object,
     assays = NULL,
-    method = "anova"
+    method = "anova",
+    formula = NULL
 ) {
     ## -----------------------------
     ## Input validation
@@ -140,8 +145,13 @@ plotVarianceComposition <- function(
         stop("No variance history found. Run profileVariance() first.")
     }
 
+    ## A composition plot shows one decomposition per assay, so resolve a
+    ## single formula rather than letting each assay fall back to its own
+    ## most-recent entry.
+    formulaKey <- .resolveFormulaKey(vh, method, formula)
+
     profiled <- unique(vapply(
-        Filter(function(x) identical(x$method, method), vh),
+        .matchLedger(vh, method = method, formulaKey = formulaKey),
         function(x) x$assay,
         character(1)
     ))
@@ -158,7 +168,7 @@ plotVarianceComposition <- function(
             stop(
                 "No variance results recorded for assay(s) ",
                 paste(missingAssays, collapse = ", "),
-                " with method '", method, "'"
+                " with method '", method, "' and formula ", formulaKey
             )
         }
     }
@@ -167,7 +177,12 @@ plotVarianceComposition <- function(
     ## Absolute composition per assay
     ## -----------------------------
     parts <- lapply(assays, function(a) {
-        res <- .getVarianceResult(object, assayName = a, method = method)
+        res <- .getVarianceResult(
+            object,
+            assayName = a,
+            method = method,
+            formulaKey = formulaKey
+        )
 
         data.frame(
             assay = a,
