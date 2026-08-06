@@ -9,7 +9,10 @@ test_that("availableCorrectionMethods lists the correction engines", {
 test_that("availableVarianceMethods lists the variance engines", {
     m <- availableVarianceMethods()
     expect_type(m, "character")
-    expect_setequal(m, c("pca", "anova", "variancePartition"))
+    expect_setequal(m, c("anova", "variancePartition"))
+
+    ## PCA is an embedding, not a variance engine
+    expect_false("pca" %in% m)
 })
 
 
@@ -41,15 +44,19 @@ test_that("varianceResults filters by assay and method", {
     bv <- exampleBatchVaria(nGenes = 40, nSamples = 8)
     bv <- profileVariance(
         bv, ~batch,
-        assays = c("raw", "raw_center"), methods = c("anova", "pca")
+        assays = c("raw", "raw_center"),
+        methods = c("anova", "variancePartition")
     )
 
     all_res <- varianceResults(bv)
     expect_setequal(unique(all_res$assay), c("raw", "raw_center"))
-    expect_setequal(unique(all_res$method), c("anova", "pca"))
+    expect_setequal(unique(all_res$method), c("anova", "variancePartition"))
 
     expect_setequal(unique(varianceResults(bv, assayName = "raw")$assay), "raw")
-    expect_setequal(unique(varianceResults(bv, method = "pca")$method), "pca")
+    expect_setequal(
+        unique(varianceResults(bv, method = "variancePartition")$method),
+        "variancePartition"
+    )
 
     both <- varianceResults(bv, assayName = "raw", method = "anova")
     expect_setequal(unique(both$assay), "raw")

@@ -37,24 +37,45 @@ While tools such as ComBat, limma, and BatchQC provide batch correction and diag
 
 # Example Dataset
 
-We begin with a synthetic dataset designed to reflect realistic batch correction scenarios. The example dataset contains simulated gene expression data with both biological group effects and batch effects. Several pre-generated corrected assays are included to illustrate different correction outcomes, including over-correction, under-correction and noise distortion. A ComBat correction is also performed as part of the workflow.
-
+We begin with a synthetic dataset built to reflect the situation batch
+correction is hardest in: batch and biology are *partially confounded*. Most
+control samples sit in one batch and most treated samples in the other, so the
+two effects are not cleanly separable.
 
 ```{r runCorrection}
 ## exampleBatchVaria() draws random data; seed for a reproducible vignette
 set.seed(1)
-bv <- exampleBatchVaria()
+bv <- exampleBatchVaria(confounding = 0.6)
 
-bv <- runCorrection(bv, method = "combat", batch = "batch", assayName = "raw")
-
-bv
+table(
+    batch = bv$batch,
+    group = bv$group
+)
 ```
 
-```{r display_assays}
+We then apply ComBat twice. The first call corrects for batch alone. The second
+additionally tells ComBat that `group` is a covariate worth protecting, so the
+batch effect is estimated adjusted for it.
+
+```{r corrections}
+bv <- runCorrection(
+    bv,
+    method = "combat", batch = "batch",
+    newAssayName = "naive"
+)
+
+bv <- runCorrection(
+    bv,
+    method = "combat", batch = "batch", covariates = "group",
+    newAssayName = "protected"
+)
+
 assayNames(bv)
 ```
 
-There are now 5 assays contained within bv, the BatchVariaData class instance. The "raw" assay is uncorrected data, "raw_combat" is ComBat corrected, "raw_center" is mean-centred data, "raw_scale" is scaled data and "raw_noise" is a distorted correction.
+`raw_noise` is a deliberately distorted assay supplied with the example data,
+kept here as a reference point for what a genuinely destructive transformation
+looks like.
 
 ---
 
@@ -63,16 +84,29 @@ There are now 5 assays contained within bv, the BatchVariaData class instance. T
 We explicitly quantify the contribution of known covariates.
 
 ```{r profile}
-assaysUsed <- c("raw", "raw_combat", "raw_center", "raw_scale", "raw_noise")
+assaysUsed <- c("raw", "naive", "protected", "raw_noise")
 
 bv <- profileVariance(
     bv,
     formula = ~ batch + group,
     assays = assaysUsed,
-    methods = c("variancePartition")
+    methods = c("anova", "variancePartition")
 )
 ```
-This step fits the specified model to each assay and decomposes variance into batch (unwanted), group (biological) and residual (unexplained). Results are stored within an internal variance ledger.
+This step fits the specified model to each assay and decomposes variance into
+batch (unwanted), group (biological) and residual (unexplained). Two engines are
+run: `anova`, which fits linear models per feature and partitions variance with
+Type II sums of squares, and `variancePartition`, which fits mixed models. Every
+result is stored in an internal variance ledger keyed on assay, method, formula
+and term.
+
+Because the ledger now holds two decompositions per assay, summaries must say
+which one they mean. Asking for a table without choosing is an error rather than
+a silent mixture, since the engines' terms are not interchangeable:
+
+```{r ambiguous, error=TRUE}
+varianceTable(bv, assays = assaysUsed)
+```
 
 ---
 
@@ -81,7 +115,7 @@ This step fits the specified model to each assay and decomposes variance into ba
 A core output of BatchVaria is a pair of summary tables.
 
 ```{r table}
-vt <- varianceTable(bv, assays = assaysUsed)
+vt <- varianceTable(bv, assays = assaysUsed, method = "anova")
 ```
 ---
 
@@ -99,7 +133,12 @@ vt$percent
 This table shows how each correction changed variance relative to the raw data.
 
 ```{r delta}
-varianceTable(bv, assays = assaysUsed, formatDelta = TRUE)$delta
+varianceTable(
+    bv,
+    assays = assaysUsed,
+    method = "anova",
+    formatDelta = TRUE
+)$delta
 ```
 ---
 
@@ -122,7 +161,7 @@ Multiplying a fraction by its assay's total variance converts it to an
 absolute quantity, which is directly comparable across assays.
 
 ```{r absolute}
-vr <- varianceResults(bv, method = "variancePartition")
+vr <- varianceResults(bv, method = "anova")
 
 absVar <- merge(
     vr[, c("assay", "term", "variance_fraction")],
@@ -140,54 +179,133 @@ tidyr::pivot_wider(
 
 ---
 
+# Two Engines, One Answer -- Until the Design Stops Cooperating
+
+BatchVaria harmonises independent variance-profiling engines onto a common
+schema. The two run above reach their decompositions by different routes:
+`anova` fits a linear model per feature and partitions with Type II sums of
+squares, while `variancePartition` fits mixed models via `lme4`.
+
+```{r concordance}
+cmp <- varianceResults(bv, assayName = "raw")[
+    , c("method", "term", "variance_fraction")
+]
+
+## the engines name the unexplained term differently
+cmp$term <- sub("^Residuals$", "residual", cmp$term)
+
+tidyr::pivot_wider(cmp, names_from = "method", values_from = "variance_fraction")
+```
+
+On an orthogonal design these agree to three decimal places. Here they do not,
+and the disagreement is the point.
+
+The divergence is a property of the design, not of either implementation. The
+two engines estimate different quantities: `variancePartition` reports how much
+variance is *associated with* a term, `anova` with Type II sums of squares
+reports how much is *uniquely attributable to* it. When a design is orthogonal
+these coincide, which is why the engines agree to three decimal places on
+balanced data. When batch and group are partially aliased they cannot coincide,
+because roughly 11 per cent of the variance here is consistent with either term
+and identifiable to neither.
+
+`anova` reports that share separately, as `shared`. A per-gene mixed model has
+no corresponding parameter -- and could not, since the effects are not
+separately identifiable in this design -- so the ambiguous variance is
+reflected in both terms, each rising from about 11 per cent to about 17.
+Neither number is wrong for the quantity it estimates; they simply stop being
+interchangeable once the design cannot separate the effects.
+
+The gap between them is therefore a measurement of the design rather than a
+disagreement between tools: it says how much of the variance the experiment
+permits you to attribute at all. Running both, and seeing them coincide on a
+clean design and separate on a compromised one, is more informative than
+trusting either alone.
+
+---
+
 # Interpretation
 
-An effective correction should reduce variance attributable to unwanted
-technical factors while preserving variance associated with the biological
-variables of interest. Judging whether it has done so requires reading the
-fraction table and the total variance together, because three of the four
-transformations in this example are misread if the fractions are taken at
-face value.
+The naive correction looks like a success. Read the fraction table on its own:
+batch variance halves, from 11.0 per cent to 5.6, and group variance *rises*,
+from 11.3 per cent to 15.2. Unwanted variation down, biological signal up. By
+the standard before-and-after comparison -- decompose variance, correct,
+decompose again -- this is a correction working exactly as intended.
 
-**ComBat.** The batch fraction falls sharply, from 16.3% to 2.2%, and the
-group fraction *rises* from 16.4% to 18.4%. Read alone, that looks like
-unwanted variation removed and biological signal preserved or even
-enhanced. It is not. Total variance falls from 1225 to 902, so in absolute
-terms the group component drops from 201 to 166 — ComBat removed roughly
-**18% of the biological signal** along with the batch effect. The group
-fraction rose only because the denominator shrank faster than the
-numerator. This is the correction performing reasonably well overall, but
-the cost to biology is invisible in the fraction table and plainly visible
-once the denominator is shown.
+It is not. Three things the fraction table cannot show say otherwise.
 
-**Scaling.** The composition is unchanged to the decimal — 16.3% / 16.4% /
-67.3%, identical to raw. The fraction table therefore reports scaling as a
-no-op. Total variance tells a different story: it falls from 1225 to 992,
-because multiplying an assay by a constant scales every variance component
-equally. Nothing was corrected, but the data were materially altered, and
-fractions alone cannot see that.
+**Total variance fell by 35 per cent**, from 1281 to 829. The group *fraction*
+rose because the denominator collapsed, not because biology was preserved. In
+absolute terms group variance fell from 145 to 126. This is the compositional
+artefact: within an assay the fractions must sum to one, so removing variance
+from any term mechanically inflates the share of every other. A rising fraction
+is not evidence of preserved signal, and reading it as such is the easiest way
+to certify a bad correction as a good one.
 
-**Added noise.** Batch and group fractions both fall (to 9.6% and 10.5%),
-which reads as a correction that damaged the biology while partially
-addressing batch. In absolute terms both components *increased* — batch
-from 199 to 291 and group from 201 to 320 — because noise adds variance
-everywhere. Nothing was removed at all; the batch effect was diluted, not
-corrected. Only the residual fraction, and the near-tripling of total
-variance to 3036, reveal what actually happened.
+**The batch effect was not removed.** 5.6 per cent remains, half of what was
+there. The correction cost a third of the dataset's variance and did not finish
+the job it was paying for.
 
-**Mean-centring** is the one case the fractions get right: composition and
-total variance are both unchanged, because per-feature centring shifts
-means without altering per-feature variances.
+**`shared` went negative**, from +11.4 per cent to -3.5. The correction did not
+merely fail to resolve the confounding; it distorted the design's
+attributability, leaving the model terms explaining more jointly than they do
+separately.
 
-The general rule: a variance fraction is a statement about *composition*,
-not about *quantity*. Use fractions to compare terms within an assay, and
-absolute variances to compare the same term across assays. Reporting a
-correction as signal-preserving on the basis of a rising fraction is the
-most common way to reach a wrong conclusion from a right number.
+Protecting the covariate addresses the second of these. Telling ComBat that
+`group` matters lets it estimate the batch effect adjusted for biology, and
+batch variance drops to 1.1 per cent -- essentially removed -- while total
+variance falls less far, to 927. It does not rescue biological signal on this
+data: absolute group variance is 126 for the naive correction and 127 for the
+protected one. The case for protecting the covariate here is that the correction
+works, not that the biology survives better.
+
+That balance is specific to this level of confounding. This vignette uses a
+single value, `confounding = 0.6`; the trade-off moves with it, because as
+batch and group approach aliasing, protecting the covariate increasingly means
+protecting the batch effect along with it. Raising or lowering the parameter
+will change which correction looks better on absolute group variance, so treat
+that comparison as a property of the design rather than a general ranking of
+the two calls.
+
+The sign of `shared` is the more dependable signal. Across confounding levels
+it is consistently negative after naive correction and positive after protected
+correction, so a correction that drives it below zero has distorted the
+design's attributability regardless of what the other fractions report. Being a
+sign rather than a magnitude, that reading needs no threshold and no reference
+distribution -- but note it is demonstrated here on simulated data with one
+correction method and one design shape.
+
+For contrast, `raw_noise` shows what a destructive transformation looks like
+under the same instruments. Its batch and group fractions both fall, which reads
+as damage. But its total variance nearly *triples*, to 3077, so in absolute
+terms every component grew: nothing was removed, the batch effect was diluted.
+`basisRetention()` is unambiguous about the difference.
+
+```{r retention}
+basisRetention(bv, assays = assaysUsed)
+```
+
+It retains 0.37 of the original variance structure against 0.99 for both ComBat
+runs, because added noise occupies directions the raw data did not. Note what
+this measure does and does not separate: it distinguishes a correction from a
+distortion, not a good correction from a bad one. Both ComBat runs stay on the
+original axes because ComBat is a per-feature linear shift.
+
+The general rule: a variance fraction is a statement about *composition*, not
+about *quantity*. Use fractions to compare terms within an assay, and totals or
+absolute variances to compare the same term across assays.
+
+This is also the answer to what BatchVaria offers over calling the underlying
+tools twice. Decomposing variance before and after correction is exactly what
+certified the naive correction as successful. Recording each decomposition
+alongside the total variance it is relative to, the share the design cannot
+attribute, and the structure the correction preserved is what catches it.
+
+---
 
 # Summary Figure
 ```{r fig.width=10, fig.height=7, out.width="100%"}
-plotVarianceComposition(bv, method = "variancePartition")
+plotVarianceComposition(bv, method = "anova")
 ```
 
 # Why This Matters

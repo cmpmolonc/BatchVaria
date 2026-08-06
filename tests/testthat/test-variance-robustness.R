@@ -23,7 +23,7 @@ test_that("zero-variance features are excluded, not fatal", {
         "2 of 60 features.*zero or non-finite variance"
     )
 
-    ## all three engines ran despite the constant features
+    ## both engines ran despite the constant features
     methods <- vapply(varianceHistory(res), function(x) x$method, character(1))
     expect_setequal(methods, availableVarianceMethods())
 })
@@ -47,15 +47,15 @@ test_that("the exclusion is reported once per assay, not once per method", {
 })
 
 
-test_that("feature-counting engines report the filtered feature count", {
+test_that("engines report the filtered feature count", {
     set.seed(1)
     bv <- makeConstantFeatures(exampleBatchVaria(nGenes = 60), c(3, 7))
 
     res <- suppressWarnings(suppressMessages(profileVariance(bv, ~batch)))
 
     counts <- vapply(
-        Filter(function(x) x$method != "pca", varianceHistory(res)),
-        function(x) unique(x$result$n),
+        varianceHistory(res),
+        function(x) unique(x$result$n_features),
         numeric(1)
     )
 
@@ -104,7 +104,7 @@ test_that("profileVariance errors when every attempt fails", {
         suppressWarnings(
             suppressMessages(profileVariance(BatchVariaData(se), ~batch))
         ),
-        "All 3 variance profiling attempts failed"
+        "All 2 variance profiling attempts failed"
     )
 })
 
@@ -113,7 +113,7 @@ test_that("one failing engine does not discard the engines that succeeded", {
     skip_if_not_installed("variancePartition")
 
     ## Four samples in a 2x2 design leaves no residual degrees of freedom,
-    ## so variancePartition cannot fit while pca and anova still can.
+    ## so variancePartition cannot fit while anova still can.
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 40, nSamples = 4)
 
@@ -125,7 +125,7 @@ test_that("one failing engine does not discard the engines that succeeded", {
     )
 
     methods <- vapply(varianceHistory(res), function(x) x$method, character(1))
-    expect_setequal(methods, c("pca", "anova"))
+    expect_setequal(methods, "anova")
 })
 
 

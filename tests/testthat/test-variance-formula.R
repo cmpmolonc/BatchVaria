@@ -33,7 +33,7 @@ test_that("random-effects formulas reach the engines that support them", {
 
     methods <- vapply(varianceHistory(res), function(x) x$method, character(1))
     expect_true("variancePartition" %in% methods)
-    expect_true("pca" %in% methods)
+    expect_false("anova" %in% methods)
 
     vp <- Filter(function(x) x$method == "variancePartition", varianceHistory(res))
     expect_setequal(vp[[1]]$result$term, c("batch", "Residuals"))

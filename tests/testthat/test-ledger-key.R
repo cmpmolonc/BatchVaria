@@ -72,11 +72,11 @@ test_that("varianceTable refuses to mix methods", {
 
     expect_error(
         varianceTable(bv),
-        "holds results for 3 methods"
+        "holds results for 2 methods"
     )
 
     tab <- varianceTable(bv, method = "anova")$percent
-    expect_setequal(tab$component, c("model", "residual"))
+    expect_setequal(tab$component, c("batch", "shared", "residual"))
 
     ## every assay column is now a genuine composition
     for (col in setdiff(colnames(tab), "component")) {
@@ -192,7 +192,7 @@ test_that("varianceTable works on objects with no assay named raw", {
     expect_warning(res <- varianceTable(obj), "No baseline assay")
 
     ## the composition does not depend on a baseline, so it is still returned
-    expect_setequal(res$percent$component, c("model", "residual"))
+    expect_setequal(res$percent$component, c("batch", "shared", "residual"))
     expect_true("counts" %in% colnames(res$percent))
     expect_null(res$delta)
     expect_null(res$baseline)
@@ -298,7 +298,7 @@ test_that("recency resolution survives a timestamp tie", {
 
     ## force the tie, and make the stale entry recognisable
     vh[[1]]$timestamp <- vh[[2]]$timestamp
-    vh[[1]]$result$variance_fraction <- c(0.99, 0.01)
+    vh[[1]]$result$variance_fraction <- rep(0.99, nrow(vh[[1]]$result))
     S4Vectors::metadata(bv)$variance_history <- vh
 
     res <- BatchVaria:::.getVarianceResult(bv, "raw", "anova")

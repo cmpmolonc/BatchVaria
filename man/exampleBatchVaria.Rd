@@ -4,14 +4,20 @@
 \alias{exampleBatchVaria}
 \title{Example BatchVaria dataset with batch and biological effects}
 \usage{
-exampleBatchVaria(nGenes = 800, nSamples = 20)
+exampleBatchVaria(nGenes = 800, nSamples = 20, confounding = 0)
 }
 \arguments{
 \item{nGenes}{Number of genes. Must be at least 10, so that each effect
 block (group, batch, both) contains at least one gene.}
 
 \item{nSamples}{Number of samples. Must be a multiple of 4 and at least
-4, giving a balanced 2 x 2 design of two batches by two groups.}
+4, giving a 2 x 2 design of two batches by two groups. The design is
+balanced unless \code{confounding} is raised above zero.}
+
+\item{confounding}{Degree of batch/group confounding, from 0 (an
+orthogonal 2 x 2 design) to 1 (batch and group fully aliased).
+Intermediate values place a corresponding majority of each group in
+one batch.}
 }
 \value{
 BatchVariaData object
@@ -22,6 +28,15 @@ a BatchVariaData object. Includes several pre-generated corrected
 assays for vignette demonstrations.
 }
 \details{
+The \code{raw_center} and \code{raw_scale} assays are retained as no-op
+controls rather than as correction methods. Per-feature centring leaves
+every variance component untouched, and uniform scaling multiplies them
+all equally, so both leave the variance composition identical to
+\code{raw} and both retain the raw principal axes exactly
+(\code{\link{basisRetention}} returns 1). They are useful precisely
+because they should register as doing nothing: a diagnostic that reports
+a change on either of them is reporting an artefact.
+
 The expression matrix and the pre-generated \code{raw_noise} assay are
 drawn with \code{\link[stats]{rnorm}}, so repeated calls return different
 data. Seeding is deliberately left to the caller rather than done inside
@@ -33,6 +48,13 @@ set.seed(1)
 bv <- exampleBatchVaria(nGenes = 100, nSamples = 8)
 bv
 SummarizedExperiment::assayNames(bv)
+
+## confounding slides the design from orthogonal to aliased
+balanced <- exampleBatchVaria(nGenes = 100, confounding = 0)
+table(balanced$batch, balanced$group)
+
+confounded <- exampleBatchVaria(nGenes = 100, confounding = 0.6)
+table(confounded$batch, confounded$group)
 }
 \seealso{
 \code{\link{set.seed}}

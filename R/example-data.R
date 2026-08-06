@@ -9,14 +9,35 @@
 #' bv <- exampleBatchVaria(nGenes = 100, nSamples = 8)
 #' bv
 #' SummarizedExperiment::assayNames(bv)
+#'
+#' ## confounding slides the design from orthogonal to aliased
+#' balanced <- exampleBatchVaria(nGenes = 100, confounding = 0)
+#' table(balanced$batch, balanced$group)
+#'
+#' confounded <- exampleBatchVaria(nGenes = 100, confounding = 0.6)
+#' table(confounded$batch, confounded$group)
 #' @param nGenes Number of genes. Must be at least 10, so that each effect
 #'   block (group, batch, both) contains at least one gene.
+#' @param confounding Degree of batch/group confounding, from 0 (an
+#'   orthogonal 2 x 2 design) to 1 (batch and group fully aliased).
+#'   Intermediate values place a corresponding majority of each group in
+#'   one batch.
 #' @param nSamples Number of samples. Must be a multiple of 4 and at least
-#'   4, giving a balanced 2 x 2 design of two batches by two groups.
+#'   4, giving a 2 x 2 design of two batches by two groups. The design is
+#'   balanced unless \code{confounding} is raised above zero.
 #'
 #' @return BatchVariaData object
 #'
 #' @details
+#' The \code{raw_center} and \code{raw_scale} assays are retained as no-op
+#' controls rather than as correction methods. Per-feature centring leaves
+#' every variance component untouched, and uniform scaling multiplies them
+#' all equally, so both leave the variance composition identical to
+#' \code{raw} and both retain the raw principal axes exactly
+#' (\code{\link{basisRetention}} returns 1). They are useful precisely
+#' because they should register as doing nothing: a diagnostic that reports
+#' a change on either of them is reporting an artefact.
+#'
 #' The expression matrix and the pre-generated \code{raw_noise} assay are
 #' drawn with \code{\link[stats]{rnorm}}, so repeated calls return different
 #' data. Seeding is deliberately left to the caller rather than done inside
@@ -28,7 +49,8 @@
 #' @export
 exampleBatchVaria <- function(
     nGenes = 800,
-    nSamples = 20
+    nSamples = 20,
+    confounding = 0
 ) {
     # -----------------------------
     # Validate the design
@@ -63,8 +85,24 @@ exampleBatchVaria <- function(
     # -----------------------------
     # Sample metadata
     # -----------------------------
+    if (!is.numeric(confounding) || length(confounding) != 1 ||
+        is.na(confounding) || confounding < 0 || confounding > 1) {
+        stop("'confounding' must be a single number between 0 and 1")
+    }
+
     batch <- rep(c("B1", "B2"), each = nSamples / 2)
-    group <- rep(rep(c("Ctrl", "Trt"), each = nSamples / 4), 2)
+
+    ## 'confounding' slides the design from orthogonal to fully aliased.
+    ## At 0 each batch is half Ctrl and half Trt, so batch and group are
+    ## independent. At 1 every Ctrl sits in B1 and every Trt in B2, so
+    ## neither effect is identifiable given the other.
+    halfN <- nSamples / 2
+    nMatch <- round(halfN * (0.5 + confounding / 2))
+
+    group <- c(
+        rep(c("Ctrl", "Trt"), c(nMatch, halfN - nMatch)),
+        rep(c("Ctrl", "Trt"), c(halfN - nMatch, nMatch))
+    )
 
     coldata <- S4Vectors::DataFrame(
         sample = paste0("S", seq_len(nSamples)),
