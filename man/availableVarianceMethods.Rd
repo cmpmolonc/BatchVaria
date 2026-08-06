@@ -12,6 +12,25 @@ Character vector of method identifiers
 \description{
 Returns the names of supported variance decomposition engines.
 }
+\details{
+The list is the contents of the engine registry, so it grows when
+\code{\link{registerVarianceEngine}} is called. Every engine listed here answers the same question -- how much of the
+variance is attributable to each term of a model -- so their results
+share a schema and can be compared directly.
+
+PCA is deliberately not among them. It is unsupervised, so its output is
+not attributable to any covariate, and its terms are latent axes rather
+than model terms: putting both in one \code{variance_fraction} column
+under one \code{term} key would assert a commensurability that does not
+hold. PCA remains available as an embedding through
+\code{\link{comparePCA}}, \code{\link{basisRetention}} and the
+plotting layer, where a shared reference basis makes cross-assay
+comparison well defined.
+}
 \examples{
 availableVarianceMethods()
+}
+\seealso{
+\code{\link{registerVarianceEngine}} to add one;
+\code{\link{comparePCA}} for the PCA-based view.
 }

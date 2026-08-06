@@ -27,10 +27,27 @@
 #' Engines differ in the formulas they accept, and each builds its own
 #' design matrix. \code{variancePartition} accepts random-effects notation
 #' such as \code{~ (1 | batch)}; \code{anova} models fixed effects only and
-#' declines such formulas by name; \code{pca} is unsupervised and ignores
-#' the formula entirely. Supplying a random-effects formula to the default
-#' set of methods is therefore expected to profile with two engines and
-#' report why the third did not participate.
+#' declines such formulas by name. Supplying a random-effects formula to
+#' the default set of methods is therefore expected to profile with
+#' \code{variancePartition} and report why \code{anova} did not
+#' participate.
+#'
+#' The \code{anova} engine decomposes variance per model term using Type II
+#' sums of squares, emitting one row per term plus \code{residual} and
+#' \code{shared}. Type II sums of squares are order independent but do not
+#' add up to the model sum of squares under an unbalanced design: variance
+#' that the design cannot attribute to any single term is reported as
+#' \code{shared} rather than left out, so the fractions remain a partition.
+#' Under an orthogonal design \code{shared} is zero; under complete
+#' confounding of two terms it absorbs everything they explain, since
+#' neither is identifiable given the other. It can be negative where terms
+#' explain more jointly than separately, which is reported with a warning.
+#'
+#' Fractions are averaged across features by default, matching how
+#' \code{variancePartition} summarises, so the two engines describe the
+#' typical feature and stay comparable. Pass \code{weighting = "pooled"} to
+#' weight each feature by the variance it carries instead. The choice and
+#' the sums-of-squares type are recorded alongside each result.
 #'
 #' @seealso \code{\link{assayVariance}}, \code{\link{varianceHistory}}
 #'
@@ -204,19 +221,3 @@ profileVariance <- function(
     invisible(object)
 }
 
-
-.getVarianceEngine <- function(method) {
-    if (!method %in% availableVarianceMethods()) {
-        stop(
-            "Unknown variance method: ", method,
-            ". Available methods are: ",
-            paste(availableVarianceMethods(), collapse = ", ")
-        )
-    }
-
-    switch(method,
-        pca               = .computePCAVariance,
-        anova             = .computeAnovaVariance,
-        variancePartition = .computeVariancePartitionVariance
-    )
-}

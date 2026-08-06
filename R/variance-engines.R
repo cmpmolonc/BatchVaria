@@ -3,19 +3,38 @@
 #' Returns the names of supported variance decomposition engines.
 #'
 #' @return Character vector of method identifiers
+#'
+#' @details
+#' The list is the contents of the engine registry, so it grows when
+#' \code{\link{registerVarianceEngine}} is called. Every engine listed here answers the same question -- how much of the
+#' variance is attributable to each term of a model -- so their results
+#' share a schema and can be compared directly.
+#'
+#' PCA is deliberately not among them. It is unsupervised, so its output is
+#' not attributable to any covariate, and its terms are latent axes rather
+#' than model terms: putting both in one \code{variance_fraction} column
+#' under one \code{term} key would assert a commensurability that does not
+#' hold. PCA remains available as an embedding through
+#' \code{\link{comparePCA}}, \code{\link{basisRetention}} and the
+#' plotting layer, where a shared reference basis makes cross-assay
+#' comparison well defined.
+#'
+#' @seealso \code{\link{registerVarianceEngine}} to add one;
+#'   \code{\link{comparePCA}} for the PCA-based view.
+#'
 #' @examples
 #' availableVarianceMethods()
 #' @export
 availableVarianceMethods <- function() {
-    c("pca", "anova", "variancePartition")
+    sort(ls(.varianceEngines))
 }
 
 ## Features with zero or non-finite variance carry no information for a
-## variance decomposition, and each engine fails differently on them:
-## prcomp(scale. = TRUE) cannot rescale a constant column, the anova
-## engine divides by a zero total sum of squares, and variancePartition
-## drops them silently inside colMeans(na.rm = TRUE). Excluding them once,
-## up front, makes the three engines agree on which features were used.
+## variance decomposition, and each engine fails differently on them: the
+## anova engine divides by a zero total sum of squares, and
+## variancePartition drops them silently inside colMeans(na.rm = TRUE).
+## Excluding them once, up front, makes both engines agree on which
+## features were used.
 ##
 ## All-zero features are routine in unfiltered count data, so this is the
 ## common case rather than an edge case.
@@ -49,8 +68,8 @@ availableVarianceMethods <- function() {
 ## Build a fixed-effects design matrix for engines that need one.
 ##
 ## This is deliberately per-engine rather than hoisted into
-## profileVariance(): of the three engines only anova consumes a design
-## matrix at all, and building one centrally meant a formula written for
+## profileVariance(): only the anova engine consumes a design matrix at
+## all, and building one centrally meant a formula written for
 ## variancePartition was silently forced through stats::model.matrix().
 ## There, '|' is parsed as logical OR rather than as random-effects
 ## notation, which errors for character covariates but for factor and
@@ -74,28 +93,51 @@ availableVarianceMethods <- function() {
     stats::model.matrix(formula, data = as.data.frame(sampleData))
 }
 
-.computePCAVariance <- function(assayMatrix, formula = NULL, sampleData = NULL, ...) {
-    stopifnot(
-        is.matrix(assayMatrix)
-    )
+## Residual sum of squares for every column of Yt against a design.
+##
+## One QR decomposition serves all features, rather than one lm.fit object
+## per feature: the old approach held residuals, effects and a QR for every
+## gene before reducing each to a single number.
+.rssPerFeature <- function(Yt, X) {
+    if (ncol(X) == 0L) {
+        return(colSums(Yt^2))
+    }
+    colSums(qr.resid(qr(X), Yt)^2)
+}
 
-    pcs <- stats::prcomp(
-        t(assayMatrix),
-        scale. = TRUE
-    )
-
-    percent_var <- pcs$sdev^2 / sum(pcs$sdev^2)
-
-    .newVarianceSummary(
-        source = "pca",
-        term = paste0("PC", seq_along(percent_var)),
-        varianceFraction = percent_var,
-        n = ncol(assayMatrix)
+## Which model terms contain term j, in the marginality sense used by
+## Type II sums of squares: term j is contained in term k when j's
+## variables are a strict subset of k's.
+.termsContaining <- function(factors, j) {
+    inJ <- factors[, j] > 0
+    vapply(
+        seq_len(ncol(factors)),
+        function(k) {
+            inK <- factors[, k] > 0
+            all(inJ <= inK) && !all(inJ == inK)
+        },
+        logical(1)
     )
 }
 
-.computeAnovaVariance <- function(assayMatrix, formula, sampleData, ...) {
+.computeAnovaVariance <- function(
+    assayMatrix,
+    formula,
+    sampleData,
+    ssType = "II",
+    weighting = c("feature", "pooled"),
+    ...
+) {
     stopifnot(is.matrix(assayMatrix))
+    weighting <- match.arg(weighting)
+
+    if (!identical(ssType, "II")) {
+        stop(
+            "Only Type II sums of squares are supported. Type III requires ",
+            "sum-to-zero contrasts to be meaningful and silently produces ",
+            "misleading results under R's default treatment contrasts"
+        )
+    }
 
     modelMatrix <- .buildFixedModelMatrix(formula, sampleData, "anova")
 
@@ -104,36 +146,27 @@ availableVarianceMethods <- function() {
         ncol(assayMatrix) == nrow(modelMatrix)
     )
 
-    # Fit linear models per feature
-    fits <- apply(
-        assayMatrix,
-        1,
-        function(y) stats::lm.fit(modelMatrix, y)
-    )
+    tt <- stats::terms(formula)
+    labels <- attr(tt, "term.labels")
+    factors <- attr(tt, "factors")
+    assign <- attr(modelMatrix, "assign")
 
-    # Residual sum of squares
-    rss <- vapply(
-        fits,
-        function(f) sum(f$residuals^2),
-        numeric(1)
-    )
+    if (length(labels) == 0L) {
+        stop("The formula has no terms to decompose variance across")
+    }
 
-    # Total sum of squares
-    tss <- apply(
-        assayMatrix,
-        1,
-        function(y) sum((y - mean(y))^2)
-    )
+    ## Features are columns from here on: one QR serves all of them.
+    Yt <- t(assayMatrix)
 
-    # Fractions
-    #
-    # A feature with zero total sum of squares gives rss / tss == Inf, and
-    # na.rm = TRUE does not remove Inf -- one such feature would drive the
-    # mean to Inf and the model fraction to -Inf. profileVariance() screens
-    # these out before calling any engine; this guard keeps the engine
-    # correct when it is called directly.
-    ratio <- rss / tss
-    usable <- is.finite(ratio)
+    ## Total sum of squares is the residual of the null model, which makes
+    ## intercept and no-intercept designs fall out of the same code. With
+    ## an intercept this is the usual sum of squares about the mean; with
+    ## ~0 + x it is the uncorrected sum of squares, so that the fractions
+    ## remain a partition of what the model is actually fitting.
+    tss <- .rssPerFeature(Yt, modelMatrix[, assign == 0L, drop = FALSE])
+    rssFull <- .rssPerFeature(Yt, modelMatrix)
+
+    usable <- is.finite(tss) & tss > 0
 
     if (!any(usable)) {
         stop(
@@ -142,16 +175,69 @@ availableVarianceMethods <- function() {
         )
     }
 
-    residual_fraction <- mean(ratio[usable])
-    model_fraction <- 1 - residual_fraction
+    ## Type II: each term is tested against a model holding every term
+    ## that does not contain it. Under an unbalanced design these sums of
+    ## squares do not add up to the model sum of squares -- variance that
+    ## the design cannot attribute to any single term is left over, and is
+    ## reported below as 'shared' rather than silently dropped.
+    ssTerms <- vapply(seq_along(labels), function(j) {
+        containing <- .termsContaining(factors, j)
+        baseTerms <- setdiff(which(!containing), j)
 
-    # Canonical variance-summary output
-    .newVarianceSummary(
+        baseCols <- assign == 0L | assign %in% baseTerms
+        fullCols <- baseCols | assign == j
+
+        .rssPerFeature(Yt, modelMatrix[, baseCols, drop = FALSE]) -
+            .rssPerFeature(Yt, modelMatrix[, fullCols, drop = FALSE])
+    }, numeric(ncol(Yt)))
+
+    ssTerms <- matrix(ssTerms, nrow = ncol(Yt), dimnames = list(NULL, labels))
+
+    ## Whatever the terms and the residual do not account for
+    ssShared <- tss - rowSums(ssTerms) - rssFull
+
+    ssAll <- cbind(ssTerms, shared = ssShared, residual = rssFull)
+
+    ## 'feature' averages per-feature fractions, matching how
+    ## variancePartition summarises across features, so the two engines
+    ## describe the typical feature and remain comparable. 'pooled' sums
+    ## the sums of squares first, weighting each feature by how much
+    ## variance it actually carries.
+    fractions <- if (weighting == "feature") {
+        colMeans(ssAll[usable, , drop = FALSE] / tss[usable])
+    } else {
+        colSums(ssAll[usable, , drop = FALSE]) / sum(tss[usable])
+    }
+
+    ## Rounding leaves fractions a hair from zero; a materially negative
+    ## shared component is real, and means the terms jointly explain more
+    ## than they do apart (a suppression effect).
+    tol <- sqrt(.Machine$double.eps)
+    fractions[abs(fractions) < tol] <- 0
+
+    if (fractions[["shared"]] < -tol) {
+        warning(
+            "The shared variance component is negative (",
+            format(fractions[["shared"]], digits = 3),
+            "), meaning the model terms explain more jointly than ",
+            "separately. This indicates a suppression effect in the design",
+            call. = FALSE
+        )
+    }
+
+    out <- newVarianceSummary(
         source = "anova",
-        term = c("model", "residual"),
-        varianceFraction = c(model_fraction, residual_fraction),
-        n = nrow(assayMatrix)
+        term = names(fractions),
+        varianceFraction = as.numeric(fractions),
+        nFeatures = sum(usable)
     )
+
+    ## The analysis choices travel with the estimate rather than being
+    ## resolved out of sight.
+    out$ss_type <- ssType
+    out$weighting <- weighting
+
+    out
 }
 
 .computeVariancePartitionVariance <- function(
@@ -241,10 +327,10 @@ availableVarianceMethods <- function() {
     variance_fraction <- colMeans(vp, na.rm = TRUE)
 
     # Return tidy variance summary contract
-    .newVarianceSummary(
+    newVarianceSummary(
         source = "variancePartition",
         term = names(variance_fraction),
         varianceFraction = as.numeric(variance_fraction),
-        n = nrow(assayMatrix)
+        nFeatures = nrow(assayMatrix)
     )
 }
