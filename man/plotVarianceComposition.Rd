@@ -47,6 +47,12 @@ those fractions relative to a baseline assay.
 
 Where an assay has been profiled more than once with the same method, the
 most recent record is used.
+
+Stacked bars assume non-negative segments. The \code{anova} engine's
+\code{shared} term is negative under suppression, where model terms
+explain more jointly than separately; the bar then extends below zero
+and the positive segments overshoot 100 per cent. This is warned about,
+and the numbers should be read from \code{\link{varianceTable}}.
 }
 \examples{
 set.seed(1)

@@ -4,7 +4,7 @@
 \alias{plotPCA,BatchVariaData-method}
 \title{Plot PCA of expression data}
 \usage{
-\S4method{plotPCA}{BatchVariaData}(object, assays = "raw", colourBy = "batch", ...)
+\S4method{plotPCA}{BatchVariaData}(object, assays = "raw", colourBy = "batch", reference = NULL, ...)
 }
 \arguments{
 \item{object}{A \code{BatchVariaData} object.}
@@ -13,6 +13,9 @@
 
 \item{colourBy}{Optional column name from \code{colData(object)} used to
 colour samples.}
+
+\item{reference}{Assay whose PCA basis every panel is projected onto.
+Inferred from the correction lineage when \code{NULL}.}
 
 \item{...}{Further arguments, required by the generic; unused.}
 }
@@ -30,6 +33,13 @@ variable in \code{colData}.
 PCA is computed on the \strong{transposed expression matrix} so that samples
 represent observations and genes represent variables. The first two
 principal components are plotted.
+
+All panels share one basis, fitted on \code{reference} and used to
+project every assay. Fitting a PCA separately per panel would make
+"PC1" a different direction in each, so panels placed side by side
+could not be compared even though their axes carry the same labels.
+See \code{\link{comparePCA}} for the shared-basis convention used
+throughout the package.
 
 If \code{colourBy} is specified, the corresponding variable from
 \code{colData(object)} is used to colour points in the plot.

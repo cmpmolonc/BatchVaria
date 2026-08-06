@@ -309,8 +309,38 @@ varianceDelta <- function(
 #' @param object BatchVariaData object
 #' @param assays Character vector of assays (default: all assays)
 #' @param nPCs Number of principal components to return (default: 3)
+#' @param reference Assay whose PCA basis the others are projected onto.
+#'   Inferred from the correction lineage when \code{NULL}, falling back to
+#'   the first assay.
 #'
-#' @return data.frame with columns: assay, component, variance
+#' @return data.frame with columns: assay, component, variance, reference
+#'
+#' @details
+#' Every assay is projected onto a single basis fitted on \code{reference},
+#' rather than each being decomposed independently. A per-assay fit makes
+#' \code{PC1} a different linear combination of features in every row, with
+#' an arbitrary sign and a rank order that reshuffles when correction
+#' removes a dominant axis: the label stays put while the direction it names
+#' does not, so subtracting one row from another compares two unrelated
+#' quantities.
+#'
+#' The trade-off is that the reference is privileged, which is stated rather
+#' than incidental. A second, related choice: the embedding standardises
+#' features to unit variance before decomposing, so every feature
+#' contributes equally to sample geometry regardless of how much variance
+#' it carries. The variance engines do not standardise, so PCA and the
+#' variance ledger describe variance on different footings and their
+#' numbers should not be read against each other. Standardising is the
+#' usual choice for an embedding whose purpose is showing sample
+#' relationships; it would be the wrong choice for attributing variance to
+#' covariates, which is why PCA is not one of the variance engines.
+#'
+#' Fractions are expressed relative to each assay's own
+#' total variance, so they sum to one for the reference and to less than one
+#' for any assay whose variance has moved into directions the reference
+#' basis does not span. That shortfall is informative: a correction that
+#' reshapes variance within the existing structure keeps the sum near one,
+#' while one that introduces new structure drives it down.
 #'
 #' @examples
 #' set.seed(1)
@@ -323,7 +353,8 @@ varianceDelta <- function(
 comparePCA <- function(
     object,
     assays = NULL,
-    nPCs = 3
+    nPCs = 3,
+    reference = NULL
 ) {
     ## -----------------------------
     ## Input validation
@@ -348,24 +379,26 @@ comparePCA <- function(
     }
 
     ## -----------------------------
-    ## Compute PCA per assay
+    ## One basis for every assay
     ## -----------------------------
+    reference <- .resolveBaseline(object, assays, reference)
+
+    if (is.null(reference)) {
+        reference <- assays[1]
+    }
+
+    basis <- .referenceBasis(object, reference)
+
     res_list <- lapply(assays, function(a) {
-        mat <- SummarizedExperiment::assay(object, a)
-        mat <- as.matrix(mat)
+        fractions <- .basisVarianceFractions(object, a, basis)
 
-        p <- stats::prcomp(t(mat), scale. = TRUE)
-
-        imp <- summary(p)$importance
-
-        ## safe PC selection
-        max_pcs <- min(nPCs, ncol(imp))
-        vars <- imp[2, seq_len(max_pcs)]
+        max_pcs <- min(nPCs, length(fractions))
 
         data.frame(
             assay = a,
             component = paste0("PC", seq_len(max_pcs)),
-            variance = as.numeric(vars),
+            variance = as.numeric(fractions[seq_len(max_pcs)]),
+            reference = reference,
             stringsAsFactors = FALSE
         )
     })

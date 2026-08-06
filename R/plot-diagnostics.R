@@ -11,6 +11,8 @@
 #' @param assays assays to use for PCA (default \code{"raw"}).
 #' @param colourBy Optional column name from \code{colData(object)} used to
 #' colour samples.
+#' @param reference Assay whose PCA basis every panel is projected onto.
+#'   Inferred from the correction lineage when \code{NULL}.
 #' @param ... Further arguments, required by the generic; unused.
 #'
 #' @return A list of  \code{ggplot2} objects (one per assay).
@@ -19,6 +21,13 @@
 #' PCA is computed on the **transposed expression matrix** so that samples
 #' represent observations and genes represent variables. The first two
 #' principal components are plotted.
+#'
+#' All panels share one basis, fitted on \code{reference} and used to
+#' project every assay. Fitting a PCA separately per panel would make
+#' "PC1" a different direction in each, so panels placed side by side
+#' could not be compared even though their axes carry the same labels.
+#' See \code{\link{comparePCA}} for the shared-basis convention used
+#' throughout the package.
 #'
 #' If \code{colourBy} is specified, the corresponding variable from
 #' \code{colData(object)} is used to colour points in the plot.
@@ -40,6 +49,7 @@ setMethod("plotPCA", "BatchVariaData", function(
     object,
     assays = "raw",
     colourBy = "batch",
+    reference = NULL,
     ...
 ) {
     ## -----------------------------
@@ -58,15 +68,20 @@ setMethod("plotPCA", "BatchVariaData", function(
         stop("At least two samples are required for PCA")
     }
 
-    plots <- lapply(assays, function(a) {
-        mat <- SummarizedExperiment::assay(object, a)
-        mat <- as.matrix(mat)
+    ## Panels sit side by side and invite comparison, so they share one
+    ## basis: a per-panel fit would label different directions "PC1".
+    reference <- .resolveBaseline(object, assays, reference)
+    if (is.null(reference)) {
+        reference <- assays[1]
+    }
+    basis <- .referenceBasis(object, reference)
 
-        p <- stats::prcomp(t(mat), scale. = TRUE)
+    plots <- lapply(assays, function(a) {
+        scores <- .projectOntoBasis(object, a, basis)
 
         df <- data.frame(
-            PC1 = p$x[, 1],
-            PC2 = p$x[, 2],
+            PC1 = scores[, 1],
+            PC2 = scores[, 2],
             colour = SummarizedExperiment::colData(object)[[colourBy]]
         )
 
@@ -115,6 +130,12 @@ setMethod("plotPCA", "BatchVariaData", function(
 #'
 #' Where an assay has been profiled more than once with the same method, the
 #' most recent record is used.
+#'
+#' Stacked bars assume non-negative segments. The \code{anova} engine's
+#' \code{shared} term is negative under suppression, where model terms
+#' explain more jointly than separately; the bar then extends below zero
+#' and the positive segments overshoot 100 per cent. This is warned about,
+#' and the numbers should be read from \code{\link{varianceTable}}.
 #'
 #' @seealso \code{\link{plotVarianceDelta}} for the change-vs-baseline view.
 #'
@@ -199,6 +220,21 @@ plotVarianceComposition <- function(
         requiredCols = c("assay", "term", "percent"),
         fnName = "plotVarianceComposition"
     )
+
+    ## A stacked bar assumes non-negative segments. The 'shared' term can
+    ## be negative under suppression, and geom_col() then draws below the
+    ## axis while the positive segments overshoot 100 per cent, so the bar
+    ## no longer reads as a composition even though it still sums to one.
+    if (any(df$percent < 0)) {
+        negatives <- unique(df$term[df$percent < 0])
+        warning(
+            "Negative variance percentages for term(s) ",
+            paste(negatives, collapse = ", "),
+            ". The stacked bars extend below zero and above 100 per cent; ",
+            "read the values from varianceTable() rather than the chart",
+            call. = FALSE
+        )
+    }
 
     ## keep the requested assay order stable across corrections
     df$assay <- factor(df$assay, levels = assays)
@@ -598,8 +634,21 @@ plotBatchEntropy <- function(
 #' @param assayBefore baseline assay
 #' @param assayAfter corrected assay
 #' @param colourBy variable for colouring
+#' @param reference Assay whose PCA basis both assays are projected onto.
+#'   Defaults to \code{assayBefore}.
 #'
 #' @return ggplot object
+#'
+#' @details
+#' Both assays are projected onto a basis fitted once on \code{reference},
+#' so the arrows measure movement relative to fixed directions and the
+#' 'before' positions are identical in every trajectory drawn from the same
+#' object. Fitting a PCA jointly over the pair being plotted would instead
+#' make those positions depend on which correction they were compared with,
+#' so two trajectories from one object could not be overlaid.
+#'
+#' @seealso \code{\link{comparePCA}} for the shared-basis convention and
+#'   its trade-off.
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
@@ -613,7 +662,8 @@ plotPCATrajectory <- function(
     object,
     assayBefore = "raw",
     assayAfter = "raw_combat",
-    colourBy = "batch"
+    colourBy = "batch",
+    reference = NULL
 ) {
     ## -----------------------------
     ## Input validation
@@ -638,20 +688,27 @@ plotPCATrajectory <- function(
         stop("At least two samples are required for PCA")
     }
 
-    mat_before <- SummarizedExperiment::assay(object, assayBefore)
-    mat_after <- SummarizedExperiment::assay(object, assayAfter)
+    ## Both assays are projected onto a basis fitted once on the reference,
+    ## so the 'before' positions are the same in every trajectory drawn from
+    ## this object. Fitting jointly over the chosen pair instead would make
+    ## those positions depend on which correction they were compared with,
+    ## and two trajectories from one object could not be overlaid.
+    if (is.null(reference)) {
+        reference <- assayBefore
+    }
 
-    mat_before <- as.matrix(mat_before)
-    mat_after <- as.matrix(mat_after)
+    if (!reference %in% SummarizedExperiment::assayNames(object)) {
+        stop("Reference assay not found: ", reference)
+    }
 
-    combined <- cbind(mat_before, mat_after)
+    basis <- .referenceBasis(object, reference)
 
-    pca <- stats::prcomp(t(combined), scale. = TRUE)
-
-    n <- ncol(mat_before)
-
-    before_coords <- pca$x[seq_len(n), seq_len(2), drop = FALSE]
-    after_coords <- pca$x[n + seq_len(n), seq_len(2), drop = FALSE]
+    before_coords <- .projectOntoBasis(object, assayBefore, basis)[
+        , seq_len(2), drop = FALSE
+    ]
+    after_coords <- .projectOntoBasis(object, assayAfter, basis)[
+        , seq_len(2), drop = FALSE
+    ]
 
     df <- data.frame(
         x1 = before_coords[, 1],

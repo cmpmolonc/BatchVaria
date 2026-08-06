@@ -8,7 +8,8 @@ plotPCATrajectory(
   object,
   assayBefore = "raw",
   assayAfter = "raw_combat",
-  colourBy = "batch"
+  colourBy = "batch",
+  reference = NULL
 )
 }
 \arguments{
@@ -19,12 +20,23 @@ plotPCATrajectory(
 \item{assayAfter}{corrected assay}
 
 \item{colourBy}{variable for colouring}
+
+\item{reference}{Assay whose PCA basis both assays are projected onto.
+Defaults to \code{assayBefore}.}
 }
 \value{
 ggplot object
 }
 \description{
 Plot PCA correction trajectories
+}
+\details{
+Both assays are projected onto a basis fitted once on \code{reference},
+so the arrows measure movement relative to fixed directions and the
+'before' positions are identical in every trajectory drawn from the same
+object. Fitting a PCA jointly over the pair being plotted would instead
+make those positions depend on which correction they were compared with,
+so two trajectories from one object could not be overlaid.
 }
 \examples{
 set.seed(1)
@@ -33,4 +45,8 @@ bv <- profileVariance(bv, ~batch, assayName = "raw")
 bv <- runCorrection(bv, method = "combat", batch = "batch")
 bv <- profileVariance(bv, ~batch, assayName = "raw_combat")
 plotPCATrajectory(bv, assayBefore = "raw", assayAfter = "raw_combat")
+}
+\seealso{
+\code{\link{comparePCA}} for the shared-basis convention and
+its trade-off.
 }
