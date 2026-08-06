@@ -2,14 +2,26 @@ Package: BatchVaria
 Title: Variance-Aware Evaluation of Batch Correction
 Version: 0.99.0
 Authors@R: 
-	person(
+    person(
         given = "Nicholas",
         family = "Moir",
         email = "nicholas.moir@ed.ac.uk",
         role = c("aut", "cre"),
         comment = c(ORCID = "0000-0001-6957-932X")
     )
-Description: A variance-aware framework for evaluating batch correction in omics data. Provides a SummarizedExperiment-based container that records correction and variance-decomposition provenance, harmonises multiple variance-profiling engines into a common tidy schema, and supports before/after comparison of technical and biological variance. 
+Description: Evaluates batch correction in omics data by quantifying how a
+    correction redistributes variance, not only whether it removes it.
+    Provides a SummarizedExperiment-based container that records correction
+    and variance-decomposition provenance, and harmonises both the batch
+    correction methods and the variance-profiling engines behind documented
+    contracts, so that either set can be extended without modifying the
+    package. Variance fractions are compositional, so
+    removing variance associated with one term inflates the fraction
+    attributed to every other. Each decomposition is therefore recorded
+    alongside the total variance it is relative to and the share an
+    unbalanced design cannot attribute to any single term, which is what
+    distinguishes a correction that removed unwanted variation from one that
+    merely removed variation.
 License: Artistic-2.0
 Encoding: UTF-8
 Depends: R (>= 4.6.0), SummarizedExperiment
@@ -25,14 +37,13 @@ biocViews:
     Transcriptomics,
     DataRepresentation,
     Visualization,
-    Sequencing,
-    Coverage,
-    MultipleComparison
+    Sequencing
 Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    BiocStyle
+    BiocStyle,
+    limma
 VignetteBuilder: knitr
 Imports:
     BiocGenerics,

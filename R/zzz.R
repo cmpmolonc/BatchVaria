@@ -4,4 +4,7 @@
     ## being a path only external code takes.
     registerVarianceEngine("anova", .computeAnovaVariance)
     registerVarianceEngine("variancePartition", .computeVariancePartitionVariance)
+
+    registerCorrectionMethod("combat", .computeCombat)
+    registerCorrectionMethod("limma", .computeLimma)
 }

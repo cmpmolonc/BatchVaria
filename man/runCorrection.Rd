@@ -8,7 +8,7 @@ runCorrection(
   object,
   method = "combat",
   batch,
-  covariates = NULL,
+  preserve = NULL,
   assayName = "raw",
   newAssayName = NULL,
   ...
@@ -21,7 +21,10 @@ runCorrection(
 
 \item{batch}{Column name in \code{colData(object)} defining batch structure.}
 
-\item{covariates}{Optional character vector of additional covariates.}
+\item{preserve}{Optional character vector of \code{colData} column names
+whose variation should be \emph{kept}. The batch effect is estimated
+adjusted for these, so biological signal they carry is protected rather
+than removed.}
 
 \item{assayName}{Name of the input assay (default \code{"raw"}).}
 
@@ -35,6 +38,29 @@ Updated \code{BatchVariaData} object with corrected assay added.
 \description{
 Runs a specified batch correction method on an assay and stores the
 corrected matrix as a new assay within the \code{BatchVariaData} object.
+}
+\details{
+Two methods are registered on load. \code{"combat"} calls
+\code{sva::ComBat()}, which applies empirical Bayes shrinkage to each
+batch's location \emph{and} scale. \code{"limma"} calls
+\code{limma::removeBatchEffect()}, which removes a per-feature location
+shift only. The two therefore differ in magnitude even where they agree
+in direction, and neither should be expected to reproduce the other.
+
+Both expect log-scale data. Neither is appropriate on raw counts, and
+\code{removeBatchEffect()} in particular is intended for exploratory work
+-- visualisation, clustering, distance calculations -- rather than as
+input to differential expression testing, where the batch term belongs in
+the model instead. Correcting first and testing afterwards understates
+the residual variance and overstates significance.
+
+\code{removeBatchEffect()} fits \code{batch} and the \code{preserve}
+design simultaneously, so a design in which the two are close to aliased
+is rank deficient and the batch effect is not separately estimable. That
+is a property of the design rather than of the method.
+
+Further methods can be added with
+\code{\link{registerCorrectionMethod}}.
 }
 \examples{
 set.seed(1)

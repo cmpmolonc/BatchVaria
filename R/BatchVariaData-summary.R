@@ -52,6 +52,14 @@ setMethod(
                         input = entry$assay_in,
                         output = entry$assay_out,
                         batch = entry$batch,
+                        ## the field that distinguishes two runs of the
+                        ## same method on the same assay
+                        preserve = if (is.null(entry$preserve)) {
+                            "-"
+                        } else {
+                            paste(entry$preserve, collapse = ", ")
+                        },
+                        no_op = isTRUE(entry$no_op),
                         timestamp = as.character(entry$timestamp),
                         stringsAsFactors = FALSE
                     )

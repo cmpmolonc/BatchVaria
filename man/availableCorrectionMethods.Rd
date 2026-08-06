@@ -10,8 +10,11 @@ availableCorrectionMethods()
 Character vector of method identifiers
 }
 \description{
-Returns the names of supported correction engines.
+Returns the names of the registered batch correction methods.
 }
 \examples{
 availableCorrectionMethods()
+}
+\seealso{
+\code{\link{registerCorrectionMethod}}
 }

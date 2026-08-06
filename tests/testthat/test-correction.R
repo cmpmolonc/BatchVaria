@@ -9,25 +9,25 @@ test_that("runCorrection creates new assay", {
 })
 
 
-test_that("runCorrection accepts covariates", {
+test_that("runCorrection accepts variables to preserve", {
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 60, nSamples = 8)
 
     ## exercises the model.matrix() path passed to ComBat as 'mod'
     out <- runCorrection(
         bv,
-        method = "combat", batch = "batch", covariates = "group"
+        method = "combat", batch = "batch", preserve = "group"
     )
 
     expect_s4_class(out, "BatchVariaData")
     expect_true("raw_combat" %in% SummarizedExperiment::assayNames(out))
     expect_equal(dim(SummarizedExperiment::assay(out, "raw_combat")), c(60L, 8L))
 
-    ## the covariate is recorded in the correction ledger
+    ## the preserved variable is recorded in the correction ledger
     ch <- S4Vectors::metadata(out)$correction_history
-    expect_equal(ch[[length(ch)]]$covariates, "group")
+    expect_equal(ch[[length(ch)]]$preserve, "group")
 
-    ## protecting a covariate should change the result
+    ## protecting a variable should change the result
     plain <- runCorrection(bv, method = "combat", batch = "batch")
     expect_false(identical(
         SummarizedExperiment::assay(out, "raw_combat"),
@@ -36,20 +36,20 @@ test_that("runCorrection accepts covariates", {
 })
 
 
-test_that("runCorrection rejects unknown covariates", {
+test_that("runCorrection rejects unknown variables to preserve", {
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 40, nSamples = 8)
 
     expect_error(
-        runCorrection(bv, method = "combat", batch = "batch", covariates = "nope"),
-        "Covariates not found in colData: nope"
+        runCorrection(bv, method = "combat", batch = "batch", preserve = "nope"),
+        "Variables to preserve not found in colData: nope"
     )
     expect_error(
         runCorrection(
             bv,
             method = "combat", batch = "batch",
-            covariates = c("group", "nope")
+            preserve = c("group", "nope")
         ),
-        "Covariates not found in colData: nope"
+        "Variables to preserve not found in colData: nope"
     )
 })

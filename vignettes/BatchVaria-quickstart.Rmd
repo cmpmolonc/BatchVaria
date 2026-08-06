@@ -53,9 +53,19 @@ table(
 )
 ```
 
+Correction methods are registered rather than hard-coded, so the set available
+is extensible in the same way the variance engines are:
+
+```{r methods}
+availableCorrectionMethods()
+```
+
+This vignette uses `combat` throughout, so that the comparison below isolates
+the effect of the design rather than differences between methods.
+
 We then apply ComBat twice. The first call corrects for batch alone. The second
-additionally tells ComBat that `group` is a covariate worth protecting, so the
-batch effect is estimated adjusted for it.
+additionally names `group` as a variable to preserve, so the batch effect is
+estimated adjusted for it.
 
 ```{r corrections}
 bv <- runCorrection(
@@ -66,7 +76,7 @@ bv <- runCorrection(
 
 bv <- runCorrection(
     bv,
-    method = "combat", batch = "batch", covariates = "group",
+    method = "combat", batch = "batch", preserve = "group",
     newAssayName = "protected"
 )
 
@@ -210,8 +220,8 @@ because roughly 11 per cent of the variance here is consistent with either term
 and identifiable to neither.
 
 `anova` reports that share separately, as `shared`. A per-gene mixed model has
-no corresponding parameter -- and could not, since the effects are not
-separately identifiable in this design -- so the ambiguous variance is
+no corresponding parameter - and could not, since the effects are not
+separately identifiable in this design - so the ambiguous variance is
 reflected in both terms, each rising from about 11 per cent to about 17.
 Neither number is wrong for the quantity it estimates; they simply stop being
 interchangeable once the design cannot separate the effects.
@@ -229,8 +239,8 @@ trusting either alone.
 The naive correction looks like a success. Read the fraction table on its own:
 batch variance halves, from 11.0 per cent to 5.6, and group variance *rises*,
 from 11.3 per cent to 15.2. Unwanted variation down, biological signal up. By
-the standard before-and-after comparison -- decompose variance, correct,
-decompose again -- this is a correction working exactly as intended.
+the standard before-and-after comparison - decompose variance, correct,
+decompose again - this is a correction working exactly as intended.
 
 It is not. Three things the fraction table cannot show say otherwise.
 
@@ -253,7 +263,7 @@ separately.
 
 Protecting the covariate addresses the second of these. Telling ComBat that
 `group` matters lets it estimate the batch effect adjusted for biology, and
-batch variance drops to 1.1 per cent -- essentially removed -- while total
+batch variance drops to 1.1 per cent - essentially removed - while total
 variance falls less far, to 927. It does not rescue biological signal on this
 data: absolute group variance is 126 for the naive correction and 127 for the
 protected one. The case for protecting the covariate here is that the correction
@@ -272,7 +282,7 @@ it is consistently negative after naive correction and positive after protected
 correction, so a correction that drives it below zero has distorted the
 design's attributability regardless of what the other fractions report. Being a
 sign rather than a magnitude, that reading needs no threshold and no reference
-distribution -- but note it is demonstrated here on simulated data with one
+distribution - but note it is demonstrated here on simulated data with one
 correction method and one design shape.
 
 For contrast, `raw_noise` shows what a destructive transformation looks like
@@ -319,11 +329,13 @@ Batch correction is frequently applied as a routine preprocessing step, yet it i
 The typical BatchVaria workflow is:
 
 1. Load expression data into BatchVariaData
-2. Apply batch correction methods 
+2. Apply batch correction methods with runCorrection(), naming any
+   variables to preserve
 3. Profile variance using profileVariance()
-4. Summarise variance using varianceTable()
-5. Compare corrections using delta variance
-6. Visualise variance composition
+4. Summarise variance using varianceTable(method = ...), naming the engine
+5. Convert fractions to absolute variance using assayVariance()
+6. Compare corrections using delta variance and basisRetention()
+7. Visualise variance composition
 
 ---
 
