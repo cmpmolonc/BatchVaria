@@ -46,6 +46,14 @@ fails, a warning names the assay, the method and the reason, and
 profiling continues with the remaining combinations. An error is raised
 only when every attempt fails, so a partial run always returns the
 results that succeeded rather than discarding them.
+
+Engines differ in the formulas they accept, and each builds its own
+design matrix. \code{variancePartition} accepts random-effects notation
+such as \code{~ (1 | batch)}; \code{anova} models fixed effects only and
+declines such formulas by name; \code{pca} is unsupervised and ignores
+the formula entirely. Supplying a random-effects formula to the default
+set of methods is therefore expected to profile with two engines and
+report why the third did not participate.
 }
 \examples{
 set.seed(1)

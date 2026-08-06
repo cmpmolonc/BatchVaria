@@ -24,6 +24,14 @@
 #' only when every attempt fails, so a partial run always returns the
 #' results that succeeded rather than discarding them.
 #'
+#' Engines differ in the formulas they accept, and each builds its own
+#' design matrix. \code{variancePartition} accepts random-effects notation
+#' such as \code{~ (1 | batch)}; \code{anova} models fixed effects only and
+#' declines such formulas by name; \code{pca} is unsupervised and ignores
+#' the formula entirely. Supplying a random-effects formula to the default
+#' set of methods is therefore expected to profile with two engines and
+#' report why the third did not participate.
+#'
 #' @seealso \code{\link{assayVariance}}, \code{\link{varianceHistory}}
 #'
 #' @examples
@@ -68,11 +76,28 @@ profileVariance <- function(
     }
 
     # --------------------------------
-    # Prepare model matrix once
+    # Validate the formula against colData
+    #
+    # Design matrices are built inside the engines that need them, not
+    # here: only the anova engine consumes one, and constructing it
+    # centrally forced random-effects formulas written for
+    # variancePartition through stats::model.matrix(), which does not
+    # understand them. Checking that the variables exist is engine
+    # independent, so it stays.
     # --------------------------------
+    if (!inherits(formula, "formula")) {
+        stop("'formula' must be a formula")
+    }
+
     sampleData <- SummarizedExperiment::colData(object)
-    df <- as.data.frame(sampleData)
-    modelMatrix <- stats::model.matrix(formula, data = df)
+
+    missing_vars <- setdiff(all.vars(formula), colnames(sampleData))
+    if (length(missing_vars) > 0) {
+        stop(
+            "Formula variables not found in colData: ",
+            paste(missing_vars, collapse = ", ")
+        )
+    }
 
     # --------------------------------
     # Loop over assays
@@ -116,7 +141,6 @@ profileVariance <- function(
                 {
                     out <- engine_fun(
                         assayMatrix = assayMatrix,
-                        modelMatrix = modelMatrix,
                         formula = formula,
                         sampleData = sampleData,
                         ...

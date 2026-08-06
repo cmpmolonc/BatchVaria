@@ -46,7 +46,35 @@ availableVarianceMethods <- function() {
     assayMatrix[keep, , drop = FALSE]
 }
 
-.computePCAVariance <- function(assayMatrix, modelMatrix = NULL, formula = NULL, sampleData = NULL, ...) {
+## Build a fixed-effects design matrix for engines that need one.
+##
+## This is deliberately per-engine rather than hoisted into
+## profileVariance(): of the three engines only anova consumes a design
+## matrix at all, and building one centrally meant a formula written for
+## variancePartition was silently forced through stats::model.matrix().
+## There, '|' is parsed as logical OR rather than as random-effects
+## notation, which errors for character covariates but for factor and
+## numeric covariates yields a nonsense design that anova fits without
+## complaint.
+.buildFixedModelMatrix <- function(formula, sampleData, method) {
+    randomTerms <- reformulas::findbars(formula)
+
+    if (length(randomTerms) > 0) {
+        randomVars <- vapply(randomTerms, function(x) deparse1(x[[3L]]), character(1))
+        stop(
+            "the '", method, "' engine models fixed effects only and cannot ",
+            "consume random-effects notation. Rewrite ",
+            deparse1(formula), " with ",
+            paste0(randomVars, collapse = " + "),
+            " as fixed effects, or restrict this formula to methods that ",
+            "support random effects (see availableVarianceMethods())"
+        )
+    }
+
+    stats::model.matrix(formula, data = as.data.frame(sampleData))
+}
+
+.computePCAVariance <- function(assayMatrix, formula = NULL, sampleData = NULL, ...) {
     stopifnot(
         is.matrix(assayMatrix)
     )
@@ -66,9 +94,12 @@ availableVarianceMethods <- function() {
     )
 }
 
-.computeAnovaVariance <- function(assayMatrix, modelMatrix, formula = NULL, sampleData = NULL, ...) {
+.computeAnovaVariance <- function(assayMatrix, formula, sampleData, ...) {
+    stopifnot(is.matrix(assayMatrix))
+
+    modelMatrix <- .buildFixedModelMatrix(formula, sampleData, "anova")
+
     stopifnot(
-        is.matrix(assayMatrix),
         is.matrix(modelMatrix),
         ncol(assayMatrix) == nrow(modelMatrix)
     )
@@ -125,7 +156,6 @@ availableVarianceMethods <- function() {
 
 .computeVariancePartitionVariance <- function(
     assayMatrix,
-    modelMatrix = NULL,
     formula,
     sampleData,
     REML = TRUE,
@@ -162,8 +192,16 @@ availableVarianceMethods <- function() {
         }
     }
 
-    # Detect categorical variables in sampleData
-    categorical_cols <- names(Filter(is.factor, sampleData))
+    # Detect categorical variables in sampleData.
+    #
+    # Character columns count as categorical: as.data.frame() on a DataFrame
+    # does not convert them to factors under R >= 4.0, so testing is.factor()
+    # alone left this guard unreachable for the common case of colData built
+    # from character vectors.
+    categorical_cols <- names(Filter(
+        function(x) is.factor(x) || is.character(x),
+        sampleData
+    ))
 
     # Extract random effect variable names
     random_vars <- vapply(

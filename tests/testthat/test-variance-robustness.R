@@ -159,14 +159,10 @@ test_that("the anova engine guards against Inf ratios when called directly", {
     mat <- as.matrix(SummarizedExperiment::assay(bv, "raw"))
     mat[3, ] <- 5
 
-    modelMatrix <- stats::model.matrix(
-        ~batch,
-        data = as.data.frame(SummarizedExperiment::colData(bv))
-    )
-
     res <- BatchVaria:::.computeAnovaVariance(
         assayMatrix = mat,
-        modelMatrix = modelMatrix
+        formula = ~batch,
+        sampleData = SummarizedExperiment::colData(bv)
     )
 
     expect_true(all(is.finite(res$variance_fraction)))
