@@ -9,7 +9,12 @@
 #' @param formula Model formula used for variance decomposition
 #' @param result Data frame containing variance decomposition results.
 #'   Must include at least \code{source}, \code{term}, and
-#'   \code{variance_fraction} columns
+#'   \code{variance_fraction} columns. Results built by
+#'   \code{\link{newVarianceSummary}}, and so every result from a
+#'   registered engine, also carry \code{n_features}; a summary assembled
+#'   by hand need not, and that column is then \code{NA} for the entry in
+#'   \code{\link{varianceResults}} output. The \code{NA} records absent
+#'   metadata rather than a failure, and nothing downstream reads it.
 #' @param method Character. Name of the variance decomposition method
 #'
 #' @return Updated \code{BatchVariaData} object with appended variance record
@@ -126,6 +131,13 @@ recordVariance <- function(
 #' variance attributable to model terms -- so stacking them in a single
 #' table produces columns that sum to well over 100\%. Likewise, the same
 #' assay profiled under two formulas yields two different decompositions.
+#'
+#' The \code{anova} engine contributes a \code{shared} row holding
+#' variance that an unbalanced design cannot attribute to any single term.
+#' It is zero under an orthogonal design and positive under confounding.
+#' It is negative where terms explain more jointly than separately (a
+#' suppression effect), which shows as a negative percentage; the column
+#' still sums to 100 because the other terms are correspondingly larger.
 #'
 #' \code{method} and \code{formula} therefore select exactly one
 #' decomposition. Either may be omitted when the ledger is unambiguous;

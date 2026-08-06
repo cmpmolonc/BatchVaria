@@ -52,6 +52,13 @@ variance attributable to model terms -- so stacking them in a single
 table produces columns that sum to well over 100\\%. Likewise, the same
 assay profiled under two formulas yields two different decompositions.
 
+The \code{anova} engine contributes a \code{shared} row holding
+variance that an unbalanced design cannot attribute to any single term.
+It is zero under an orthogonal design and positive under confounding.
+It is negative where terms explain more jointly than separately (a
+suppression effect), which shows as a negative percentage; the column
+still sums to 100 because the other terms are correspondingly larger.
+
 \code{method} and \code{formula} therefore select exactly one
 decomposition. Either may be omitted when the ledger is unambiguous;
 when it is not, the error lists what is available rather than choosing

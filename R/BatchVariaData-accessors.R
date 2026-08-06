@@ -150,12 +150,18 @@ varianceResults <- function(object, assayName = NULL, method = NULL) {
 
         df$assay <- entry$assay
         df$method <- entry$method
+        df$formula <- .entryFormulaKey(entry)
         df$timestamp <- entry$timestamp
 
         out[[length(out) + 1]] <- df
     }
 
-    out <- do.call(rbind, out)
+    ## Engines share the required columns but may carry their own
+    ## alongside them -- the anova engine records the sums-of-squares type
+    ## and weighting it used, for instance. bind_rows() fills those with NA
+    ## for engines to which they do not apply, where rbind() would fail on
+    ## the differing widths.
+    out <- dplyr::bind_rows(out)
 
     # optional filtering
     if (!is.null(assayName)) {
