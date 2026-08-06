@@ -21,7 +21,12 @@ recordVariance(
 
 \item{result}{Data frame containing variance decomposition results.
 Must include at least \code{source}, \code{term}, and
-\code{variance_fraction} columns}
+\code{variance_fraction} columns. Results built by
+\code{\link{newVarianceSummary}}, and so every result from a
+registered engine, also carry \code{n_features}; a summary assembled
+by hand need not, and that column is then \code{NA} for the entry in
+\code{\link{varianceResults}} output. The \code{NA} records absent
+metadata rather than a failure, and nothing downstream reads it.}
 
 \item{method}{Character. Name of the variance decomposition method}
 }
