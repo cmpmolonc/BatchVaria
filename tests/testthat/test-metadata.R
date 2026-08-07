@@ -15,7 +15,9 @@ test_that("profileVariance records variance history", {
     md <- S4Vectors::metadata(bv)
 
     expect_true("variance_history" %in% names(md))
-    expect_true(length(md$variance_history) == 2)
+    ## One entry per assay/method, and profileVariance() runs one engine
+    ## unless told otherwise.
+    expect_true(length(md$variance_history) == 1)
 
     entry <- md$variance_history[[1]]
 
@@ -32,7 +34,7 @@ test_that("variance history accumulates across calls", {
 
     md <- S4Vectors::metadata(bv)
 
-    expect_equal(length(md$variance_history), 4)
+    expect_equal(length(md$variance_history), 2)
 })
 
 

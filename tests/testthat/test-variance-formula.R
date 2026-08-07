@@ -28,7 +28,11 @@ test_that("random-effects formulas reach the engines that support them", {
     bv <- exampleBatchVaria(nGenes = 80)
 
     res <- suppressWarnings(suppressMessages(
-        profileVariance(bv, ~(1 | batch), assays = "raw")
+        profileVariance(
+            bv, ~(1 | batch),
+            assays = "raw",
+            methods = c("anova", "variancePartition")
+        )
     ))
 
     methods <- vapply(varianceHistory(res), function(x) x$method, character(1))
@@ -96,11 +100,15 @@ test_that("fixed-effects formulas are unaffected", {
     bv <- exampleBatchVaria(nGenes = 60)
 
     res <- suppressWarnings(suppressMessages(
-        profileVariance(bv, ~ batch + group, assays = "raw")
+        profileVariance(
+            bv, ~ batch + group,
+            assays = "raw",
+            methods = c("anova", "variancePartition")
+        )
     ))
 
     methods <- vapply(varianceHistory(res), function(x) x$method, character(1))
-    expect_setequal(methods, availableVarianceMethods())
+    expect_setequal(methods, c("anova", "variancePartition"))
 
     vp <- Filter(function(x) x$method == "variancePartition", varianceHistory(res))
     expect_setequal(vp[[1]]$result$term, c("batch", "group", "Residuals"))

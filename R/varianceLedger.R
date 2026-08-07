@@ -151,7 +151,7 @@ recordVariance <- function(
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
-#' bv <- profileVariance(bv, ~batch, methods = "anova")
+#' bv <- profileVariance(bv, ~batch)
 #' varianceTable(bv)
 #'
 #' @export
@@ -321,7 +321,7 @@ varianceTable <- function(
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
-#' bv <- profileVariance(bv, ~batch, methods = "anova")
+#' bv <- profileVariance(bv, ~batch)
 #' varianceChange(bv, term = "residual")
 #'
 #' @export

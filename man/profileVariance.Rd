@@ -7,7 +7,7 @@
 profileVariance(
   object,
   formula,
-  methods = availableVarianceMethods(),
+  methods = "anova",
   assayName = NULL,
   assays = NULL,
   ...
@@ -18,7 +18,8 @@ profileVariance(
 
 \item{formula}{Model formula specifying covariates}
 
-\item{methods}{Character vector of variance engines to apply}
+\item{methods}{Character vector of variance engines to apply. Defaults
+to \code{"anova"} alone; name several to profile with each.}
 
 \item{assayName}{Name of a single assay to profile. A convenience
 alternative to \code{assays} when only one assay is of interest;
@@ -51,9 +52,18 @@ Engines differ in the formulas they accept, and each builds its own
 design matrix. \code{variancePartition} accepts random-effects notation
 such as \code{~ (1 | batch)}; \code{anova} models fixed effects only and
 declines such formulas by name. Supplying a random-effects formula to
-the default set of methods is therefore expected to profile with
+both engines is therefore expected to profile with
 \code{variancePartition} and report why \code{anova} did not
 participate.
+
+Only \code{anova} runs by default. Profiling with every registered
+engine would leave the ledger holding several decompositions after a
+single call, and \code{\link{varianceTable}} and its relatives
+summarise exactly one -- so the shortest path through the package
+would end in an error asking which was meant. It would also make
+\code{\link{registerVarianceEngine}} change the behaviour of calls
+that never named the new engine. Comparing engines is worth doing, but
+it is a deliberate act: name them.
 
 The \code{anova} engine decomposes variance per model term using Type II
 sums of squares, emitting one row per term plus \code{residual} and
@@ -75,8 +85,12 @@ the sums-of-squares type are recorded alongside each result.
 \examples{
 set.seed(1)
 bv <- exampleBatchVaria(nGenes = 100)
-bv <- profileVariance(bv, ~batch, methods = "anova")
+bv <- profileVariance(bv, ~batch)
 length(varianceHistory(bv))
+
+## Comparing engines is opt-in
+bv <- profileVariance(bv, ~batch, methods = c("anova", "variancePartition"))
+unique(vapply(varianceHistory(bv), function(x) x$method, character(1)))
 
 }
 \seealso{

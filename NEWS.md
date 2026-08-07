@@ -44,6 +44,13 @@ Initial Bioconductor submission.
   variance to model terms, so their results are directly comparable. On a
   balanced design they agree to three decimal places.
 
+* `profileVariance()` runs `anova` alone unless told otherwise. Profiling
+  with every registered engine would leave the ledger holding several
+  decompositions after one call, so the shortest path through the package
+  ended at `varianceTable()` asking which was meant. It would also make
+  `registerVarianceEngine()` change the behaviour of calls that never named
+  the new engine. Comparing engines is a deliberate act: name them.
+
 * The `anova` engine uses Type II sums of squares and emits one row per model
   term plus `residual` and `shared`. `shared` carries variance an unbalanced
   design cannot attribute to any single term: zero when the design is

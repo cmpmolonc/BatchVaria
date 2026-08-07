@@ -24,7 +24,7 @@ Extracts variance decomposition results stored in the
 \examples{
 set.seed(1)
 bv <- exampleBatchVaria(nGenes = 100)
-bv <- profileVariance(bv, ~batch, methods = "anova")
+bv <- profileVariance(bv, ~batch)
 varianceResults(bv, assayName = "raw")
 
 }

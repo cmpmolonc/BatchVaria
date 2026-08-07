@@ -18,7 +18,7 @@ Access variance profiling history
 \examples{
 set.seed(1)
 bv <- exampleBatchVaria(nGenes = 100)
-bv <- profileVariance(bv, ~batch, methods = "anova")
+bv <- profileVariance(bv, ~batch)
 length(varianceHistory(bv))
 
 }

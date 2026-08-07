@@ -19,13 +19,16 @@ test_that("zero-variance features are excluded, not fatal", {
     bv <- makeConstantFeatures(exampleBatchVaria(nGenes = 60), c(3, 7))
 
     expect_warning(
-        res <- suppressMessages(profileVariance(bv, ~batch)),
+        res <- suppressMessages(profileVariance(
+            bv, ~batch,
+            methods = c("anova", "variancePartition")
+        )),
         "2 of 60 features.*zero or non-finite variance"
     )
 
     ## both engines ran despite the constant features
     methods <- vapply(varianceHistory(res), function(x) x$method, character(1))
-    expect_setequal(methods, availableVarianceMethods())
+    expect_setequal(methods, c("anova", "variancePartition"))
 })
 
 
@@ -102,7 +105,10 @@ test_that("profileVariance errors when every attempt fails", {
 
     expect_error(
         suppressWarnings(
-            suppressMessages(profileVariance(BatchVariaData(se), ~batch))
+            suppressMessages(profileVariance(
+                BatchVariaData(se), ~batch,
+                methods = c("anova", "variancePartition")
+            ))
         ),
         "All 2 variance profiling attempts failed"
     )
@@ -119,7 +125,11 @@ test_that("one failing engine does not discard the engines that succeeded", {
 
     expect_warning(
         res <- suppressMessages(
-            profileVariance(bv, ~ batch + group, assays = "raw")
+            profileVariance(
+                bv, ~ batch + group,
+                assays = "raw",
+                methods = c("anova", "variancePartition")
+            )
         ),
         "Variance method 'variancePartition' failed for assay 'raw'"
     )

@@ -68,7 +68,10 @@ test_that("varianceTable refuses to mix methods", {
 
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 100)
-    bv <- suppressWarnings(suppressMessages(profileVariance(bv, ~batch)))
+    bv <- suppressWarnings(suppressMessages(profileVariance(
+        bv, ~batch,
+        methods = c("anova", "variancePartition")
+    )))
 
     expect_error(
         varianceTable(bv),

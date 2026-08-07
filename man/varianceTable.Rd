@@ -68,7 +68,7 @@ key, the most recent result is used.
 \examples{
 set.seed(1)
 bv <- exampleBatchVaria(nGenes = 100)
-bv <- profileVariance(bv, ~batch, methods = "anova")
+bv <- profileVariance(bv, ~batch)
 varianceTable(bv)
 
 }

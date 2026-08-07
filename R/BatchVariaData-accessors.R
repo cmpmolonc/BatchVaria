@@ -7,7 +7,7 @@
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
-#' bv <- profileVariance(bv, ~batch, methods = "anova")
+#' bv <- profileVariance(bv, ~batch)
 #' length(varianceHistory(bv))
 #'
 #' @export
@@ -123,7 +123,7 @@ assayVariance <- function(object, assays = NULL) {
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
-#' bv <- profileVariance(bv, ~batch, methods = "anova")
+#' bv <- profileVariance(bv, ~batch)
 #' varianceResults(bv, assayName = "raw")
 #'
 #' @export

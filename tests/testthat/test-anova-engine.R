@@ -186,7 +186,14 @@ test_that("varianceResults tolerates engine-specific columns", {
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 80)
     bv <- suppressWarnings(suppressMessages(
-        profileVariance(bv, ~batch, assays = "raw")
+        profileVariance(
+            bv, ~batch,
+            assays = "raw",
+            ## Both engines: the NA below is variancePartition's, which
+            ## reports no sums-of-squares type. With anova alone the
+            ## column would be complete and the assertion vacuous.
+            methods = c("anova", "variancePartition")
+        )
     ))
 
     res <- varianceResults(bv)
