@@ -25,7 +25,8 @@ library(SummarizedExperiment)
 High-throughput transcriptomic datasets frequently contain unwanted technical variation arising from batch effects. Numerous batch correction methods exist, but selecting an appropriate method is challenging because correction can remove biological signal or distort sample relationships. BatchVaria provides a framework for quantifying variance components, tracking variance changes after correction, and evaluating correction performance using multiple metrics, enabling evidence-based selection of batch correction strategies.
 <br>
 <br>
-While tools such as ComBat, limma, and BatchQC provide batch correction and diagnostic visualisations, BatchVaria focuses specifically on quantitative evaluation of correction performance across multiple assays and correction strategies within a unified framework. BatchVaria unifies variance decomposition, tracking, and comparison into a single coherent workflow. 
+While tools such as ComBat, limma, and BatchQC provide batch correction and diagnostic visualisations, BatchVaria focuses specifically on quantitative evaluation of correction performance across multiple assays and correction strategies within a unified framework. BatchVaria unifies variance decomposition, tracking, and comparison into a single coherent workflow.
+
 ---
 
 # Installation
@@ -67,7 +68,7 @@ We then apply ComBat twice. The first call corrects for batch alone. The second
 additionally names `group` as a variable to preserve, so the batch effect is
 estimated adjusted for it.
 
-```{r corrections}
+```{r corrections, message=FALSE}
 bv <- runCorrection(
     bv,
     method = "combat", batch = "batch",
@@ -85,7 +86,9 @@ assayNames(bv)
 
 `raw_noise` is a deliberately distorted assay supplied with the example data,
 kept here as a reference point for what a genuinely destructive transformation
-looks like.
+looks like. `raw_center` and `raw_scale` are no-op controls: centring and
+scaling change no variance fraction, so a diagnostic that reports a change on
+them is reporting an artefact of the diagnostic rather than of the data.
 
 ---
 
@@ -141,6 +144,8 @@ vt$percent
 # Variance Change Relative to Raw
 
 This table shows how each correction changed variance relative to the raw data.
+Every entry is a change in a *fraction*, which constrains what it can be read
+to mean; the next section sets out what that constraint is.
 
 ```{r delta}
 varianceTable(
@@ -178,44 +183,86 @@ absVar <- merge(
     av[, c("assay", "total_variance")],
     by = "assay"
 )
-absVar$absolute <- absVar$variance_fraction * absVar$total_variance
+absVar$absolute <- round(absVar$variance_fraction * absVar$total_variance, 1)
 
-tidyr::pivot_wider(
+## as.data.frame(), because pivot_wider() returns a tibble and tibble
+## prints three significant figures: 141.0, 144.6 and 146.2 all come out
+## as "141.", "145.", "146.", and 9.9 sits beside 2440.6 at different
+## precisions. The comparison this table exists to support is exactly the
+## one that resolution hides.
+as.data.frame(tidyr::pivot_wider(
     absVar[, c("assay", "term", "absolute")],
     names_from = "term",
     values_from = "absolute"
-)
+))
 ```
+
+Read the `group` row across the assays: 144.6 in `raw`, 126.0 after the naive
+correction and 127.0 after the protected one. In absolute terms group variance
+barely moves. Its *fraction* meanwhile climbs from 11.3 to 15.2 per cent,
+because the denominator fell from 1281 to 829. The fraction rose because
+something else was removed, not because biological signal grew.
 
 ---
 
 # Two Engines, One Answer -- Until the Design Stops Cooperating
 
 BatchVaria harmonises independent variance-profiling engines onto a common
-schema. The two run above reach their decompositions by different routes:
-`anova` fits a linear model per feature and partitions with Type II sums of
-squares, while `variancePartition` fits mixed models via `lme4`.
+schema: the same columns, and the same names for the two terms that mean the
+same thing in any engine -- `residual` and `shared`. The two runs above reach
+their decompositions by different routes: `anova` fits a linear model per
+feature and partitions with Type II sums of squares, while
+`variancePartition` fits mixed models via `lme4`.
 
 ```{r concordance}
 cmp <- varianceResults(bv, assayName = "raw")[
     , c("method", "term", "variance_fraction")
 ]
 
-## the engines name the unexplained term differently
-cmp$term <- sub("^Residuals$", "residual", cmp$term)
-
-tidyr::pivot_wider(cmp, names_from = "method", values_from = "variance_fraction")
+as.data.frame(
+    tidyr::pivot_wider(
+        cmp,
+        names_from = "method",
+        values_from = "variance_fraction"
+    )
+)
 ```
 
-On an orthogonal design these agree to three decimal places. Here they do not,
-and the disagreement is the point.
+Here they disagree, and the disagreement is the point. On an orthogonal design
+they do not:
 
-The divergence is a property of the design, not of either implementation. The
-two engines estimate different quantities: `variancePartition` reports how much
-variance is *associated with* a term, `anova` with Type II sums of squares
-reports how much is *uniquely attributable to* it. When a design is orthogonal
-these coincide, which is why the engines agree to three decimal places on
-balanced data. When batch and group are partially aliased they cannot coincide,
+```{r orthogonal, message=FALSE}
+orth <- profileVariance(
+    exampleBatchVaria(confounding = 0),
+    ~ batch + group,
+    assays = "raw",
+    methods = c("anova", "variancePartition")
+)
+
+## Printed at full precision deliberately: at three significant figures
+## both columns read 0.163 and the agreement below cannot be checked.
+as.data.frame(
+    tidyr::pivot_wider(
+        varianceResults(orth, assayName = "raw")[
+            , c("method", "term", "variance_fraction")
+        ],
+        names_from = "method",
+        values_from = "variance_fraction"
+    )
+)
+```
+
+Every term the two engines share agrees to floating-point precision. `shared`
+is exactly zero, because an orthogonal design leaves nothing unattributable,
+and `variancePartition` reports `NA` for it because a mixed model has no such
+parameter to report.
+
+The divergence above is therefore a property of the design, not of either
+implementation. The two engines estimate different quantities:
+`variancePartition` reports how much variance is *associated with* a term,
+`anova` with Type II sums of squares reports how much is *uniquely attributable
+to* it. When a design is orthogonal these coincide, which is why the two tables
+differ as they do. When batch and group are partially aliased they cannot coincide,
 because roughly 11 per cent of the variance here is consistent with either term
 and identifiable to neither.
 
@@ -287,7 +334,7 @@ correction method and one design shape.
 
 For contrast, `raw_noise` shows what a destructive transformation looks like
 under the same instruments. Its batch and group fractions both fall, which reads
-as damage. But its total variance nearly *triples*, to 3077, so in absolute
+as damage. But its total variance *more than doubles*, to 3077, so in absolute
 terms every component grew: nothing was removed, the batch effect was diluted.
 `basisRetention()` is unambiguous about the difference.
 
@@ -314,9 +361,27 @@ attribute, and the structure the correction preserved is what catches it.
 ---
 
 # Summary Figure
-```{r fig.width=10, fig.height=7, out.width="100%"}
-plotVarianceComposition(bv, method = "anova")
+
+`evaluateCorrections()` runs the diagnostics above in one call and returns them
+in a form the plotting layer reads directly.
+
+```{r summaryfig, fig.width=10, fig.height=6, out.width="100%"}
+ev <- evaluateCorrections(
+    bv,
+    baseline = "raw",
+    assays = assaysUsed,
+    diagnostics = "variance"
+)
+
+plotVarianceDelta(ev)
 ```
+
+One group of bars per model term, one bar per assay, and the height is the
+signed change in that term's fraction relative to `raw`.  Read left to right: both corrections cut `batch`, the protected run cutting it roughly twice as hard. Both raise `residual`. The difference that matters is
+`shared` - the naive run drives it down by 0.149 while the protected run moves
+it by 0.044, which is the confounded biology being converted into apparent
+residual rather than removed. `raw_noise` cuts `batch` too, by dilution rather
+than correction, which is why no single bar here is sufficient on its own.
 
 # Why This Matters
 
