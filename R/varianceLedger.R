@@ -87,12 +87,17 @@ recordVariance <- function(
         vh <- list()
     }
 
+    ## Fingerprint of the assay this result describes, so that a reader can
+    ## tell whether the object still holds the data the result was computed
+    ## from. Recorded here rather than checked here: the entry is correct at
+    ## the moment it is written, and only later mutation can invalidate it.
     vh[[length(vh) + 1]] <- list(
         assay = assayName,
         formula = formula,
         formula_key = formulaKey,
         method = method,
         result = result,
+        fingerprint = .assayFingerprint(object, assayName),
         timestamp = Sys.time()
     )
 
@@ -207,6 +212,16 @@ varianceTable <- function(
     }
 
     baseline <- .resolveBaseline(object, assays, baseline)
+
+    ## Read-time staleness check. The percentages below are computed from
+    ## stored results, so they are returned whether or not the object still
+    ## holds the data they describe; the warning is what makes the
+    ## difference visible.
+    .warnIfStale(
+        object,
+        .matchLedger(vh, method = method, formulaKey = formulaKey),
+        "varianceTable()"
+    )
 
     ## One result per assay: .getVarianceResult() resolves repeat
     ## profiling of the same key by recency, so each (assay, term) pair

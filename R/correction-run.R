@@ -161,6 +161,11 @@ runCorrection <- function(
         params             = list(...),
         total_variance_in  = .assayTotalVariance(object, assayName),
         total_variance_out = .assayTotalVariance(object, newAssayName),
+        ## The recorded totals are the quantities the variance fractions
+        ## are relative to, so they go stale exactly as a variance result
+        ## does. Fingerprint both assays for the same reason.
+        fingerprint        = .assayFingerprint(object, assayName),
+        fingerprint_out    = .assayFingerprint(object, newAssayName),
         timestamp          = Sys.time()
     )
 

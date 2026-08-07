@@ -136,6 +136,14 @@ varianceResults <- function(object, assayName = NULL, method = NULL) {
         return(data.frame())
     }
 
+    ## Checked against the entries actually reported, so filtering to an
+    ## assay that is still current does not warn about one that is not.
+    .warnIfStale(
+        object,
+        .matchLedger(vh, assayName = assayName, method = method),
+        "varianceResults()"
+    )
+
     out <- list()
 
     for (entry in vh) {
