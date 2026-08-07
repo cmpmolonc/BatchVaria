@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          BiocManager::install(c("BiocCheck", "rcmdcheck"), ask = FALSE)
+          BiocManager::install(c("BiocCheck", "rcmdcheck","remotes"), ask = FALSE)
           remotes::install_deps(dependencies = TRUE, repos = BiocManager::repositories())
         shell: Rscript {0}
 
