@@ -1,5 +1,6 @@
 BatchVaria: A variance-aware framework for evaluating batch correction
 ================
+[![check-bioc](https://github.com/cmpmolonc/BatchVaria/actions/workflows/check-bioc.yml/badge.svg)](https://github.com/cmpmolonc/BatchVaria/actions/workflows/check-bioc.yml)
 
 # Overview
 
