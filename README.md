@@ -137,10 +137,3 @@ authoritative description of current behaviour:
 ``` r
 vignette("BatchVaria-quickstart")
 ```
-
-# Citation
-
-Please cite the following preprint:
-
-Moir N, Sherwood K, Simpson TI (2026). "BatchVaria: a variance-aware framework for evaluating batch correction in high-dimensional omics data". bioRxiv.
-https://doi.org/10.64898/2026.05.07.721996
