@@ -7,6 +7,24 @@ Initial Bioconductor submission.
 * `BatchVariaData` extends `SummarizedExperiment`, holding the raw and
   corrected matrices as assays and every analysis decision in `metadata()`.
 
+* A validity method checks both ledgers structurally and referentially:
+  entries are well formed, and the assays and `colData` columns they name
+  exist. This runs at construction and on `validObject()`. It cannot run
+  anywhere else -- `[`, `assay<-`, `colData<-` and `metadata<-` do not
+  invoke S4 validity -- so it covers a malformed object handed to the
+  constructor and nothing that happens to an object afterwards.
+
+* Mutation after construction is covered instead by a fingerprint recorded
+  with each ledger entry and checked when the entry is read. `bv[, 1:6]`
+  is ordinary `SummarizedExperiment` behaviour that no validity method can
+  see, and it previously left `varianceTable()` returning percentages that
+  described samples the object no longer held. `varianceTable()` and
+  `varianceResults()` now warn, naming the assays and how they changed.
+  They still return the result: a stale decomposition is evidence of what
+  was computed, it has only stopped describing the current object. The
+  fingerprint covers content as well as dimensions, so an assay replaced
+  in place by a matrix of the same shape is detected too.
+
 * `runCorrection()` applies a batch correction and appends an entry to the
   correction ledger recording the method, the input and output assays, the
   batch variable, any variables preserved during correction, and the total
@@ -118,6 +136,14 @@ Initial Bioconductor submission.
 
 * Correction methods build their own design matrices from `preserve`, so a
   design assembled for one is never forced through another.
+
+* The engine contract reserves two term names, `residual` and `shared`,
+  because they mean the same thing whatever the engine. An engine whose
+  implementation spells them differently normalises before returning: the
+  built-in `variancePartition` engine renames `Residuals` on the way out.
+  Harmonising the columns but not the vocabulary would produce results that
+  look comparable and cannot be joined. Every other term an engine names as
+  its model does.
 
 * `newVarianceSummary()` builds and validates a conforming result. The engine
   contract is documented on `registerVarianceEngine()`.
