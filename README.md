@@ -18,10 +18,17 @@ unwanted variation from one that merely removed variation.
 
 # Installation
 
-The current release of BatchVaria can be installed with:
+BatchVaria is under review at Bioconductor. Once accepted:
+
 ``` r
-# install.packages("devtools")
-devtools::install_github("cmpmolonc/BatchVaria")
+# BiocManager::install("BatchVaria")
+```
+
+In the meantime, install from GitHub:
+
+``` r
+# install.packages("remotes")
+remotes::install_github("cmpmolonc/BatchVaria")
 ```
 
 # Quick start
@@ -30,6 +37,10 @@ devtools::install_github("cmpmolonc/BatchVaria")
 library(BatchVaria)
 
 set.seed(1)
+
+## Four assays: 'raw', two no-op controls, and a deliberately distorted
+## 'raw_noise'. The quick start profiles 'raw' and the correction added
+## below; the vignette uses the others as reference points.
 bv <- exampleBatchVaria(confounding = 0.6)
 
 bv <- runCorrection(
@@ -56,8 +67,9 @@ varianceTable(bv, assays = c("raw", "corrected"))
 #> to choose one
 
 varianceTable(bv, assays = c("raw", "corrected"), method = "anova")$percent
-#> # A tibble: 4 x 3
+#> # A tibble: 4 × 3
 #>   component   raw corrected
+#>   <chr>     <dbl>     <dbl>
 #> 1 batch      11.0       5.6
 #> 2 group      11.3      15.2
 #> 3 shared     11.4      -3.5
@@ -74,15 +86,22 @@ compared across assays. Here the batch fraction halves and the group fraction
 *rises*, which reads as a successful correction. It is not one:
 
 ``` r
-assayVariance(bv, assays = c("raw", "corrected"))[, c("assay", "total_variance")]
+av <- assayVariance(bv, assays = c("raw", "corrected"))
+av[, c("assay", "total_variance")]
 #>       assay total_variance
-#> 1       raw          1281.
-#> 2 corrected           829.
+#> 1       raw      1281.1431
+#> 2 corrected       828.6556
+
+## the group fraction as an absolute quantity
+vt <- varianceTable(bv, assays = c("raw", "corrected"), method = "anova")$percent
+unlist(vt[vt$component == "group", c("raw", "corrected")]) / 100 * av$total_variance
+#>       raw corrected
+#>  144.5129  126.0385
 ```
 
 Total variance fell by 35%. The group fraction rose because the denominator
 collapsed, not because biological signal was preserved: in absolute terms it
-fell from 145 to 126. Meanwhile 5.6% of the batch effect remains, and
+fell, from 144.5 to 126.0. Meanwhile 5.6% of the batch effect remains, and
 `shared` — the variance this confounded design cannot attribute to either
 term — has gone negative, indicating the correction distorted the design's
 attributability.
@@ -100,10 +119,8 @@ of the original variance structure a correction preserved.
 4.  Summarise with `varianceTable(method = ...)`, naming the engine and,
     where ambiguous, the formula
 5.  Convert fractions to absolute variance using `assayVariance()`
-6.  Compare structure with `basisRetention()`, `comparePCA()` and
-    `compareCorrelations()`
-7.  Visualise with `plotVarianceComposition()`, `plotVarianceDelta()` and
-    the other diagnostic plots
+6.  Compare structure with `basisRetention()` and other diagnostics
+7.  Visualise with `plotVarianceDelta()` and the other diagnostic plots
 
 Both layers are extensible behind documented contracts:
 `registerVarianceEngine()` and `registerCorrectionMethod()` add an engine or
@@ -114,8 +131,8 @@ party would use.
 
 # Further detail
 
-Further detail and examples can be found in the preprint at
-https://doi.org/10.64898/2026.05.07.721996 and in the package vignette:
+Further detail and worked examples are in the package vignette, which is the
+authoritative description of current behaviour:
 
 ``` r
 vignette("BatchVaria-quickstart")
