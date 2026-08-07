@@ -13,6 +13,8 @@ on:
     branches: [main, devel]
   pull_request:
     branches: [main, devel]
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 concurrency:
@@ -54,8 +56,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          BiocManager::install(c("BiocCheck", "rcmdcheck"), ask = FALSE)
+          BiocManager::install(c("BiocCheck", "rcmdcheck","remotes"), ask = FALSE)
           remotes::install_deps(dependencies = TRUE, repos = BiocManager::repositories())
+        shell: Rscript {0}
+      
+      - name: Install LaTeX
+        run: |
+          if (!requireNamespace("tinytex", quietly = TRUE))
+              install.packages("tinytex")
+          tinytex::install_tinytex()
         shell: Rscript {0}
 
       - name: Session info
@@ -72,12 +81,12 @@ jobs:
       - name: R CMD check
         run: |
           tarball <- list.files(pattern = "\\.tar\\.gz$")[1]
-          ## The manual is built rather than skipped: the Single Package
-          ## Builder builds it, so malformed Rd that passes --no-manual
-          ## would fail there and not here.
+          ## The manual is skipped: the Bioconductor devel container ships
+          ## without pdflatex. The Rd checks proper - \usage sections,
+          ## cross-references, missing entries - still run above.
           res <- rcmdcheck::rcmdcheck(
               tarball,
-              args = "--timings",
+              args = c("--timings", "--no-manual"),
               error_on = "warning",
               check_dir = "check"
           )
