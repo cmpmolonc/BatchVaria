@@ -57,6 +57,13 @@ jobs:
           BiocManager::install(c("BiocCheck", "rcmdcheck","remotes"), ask = FALSE)
           remotes::install_deps(dependencies = TRUE, repos = BiocManager::repositories())
         shell: Rscript {0}
+      
+      - name: Install LaTeX
+        run: |
+          if (!requireNamespace("tinytex", quietly = TRUE))
+              install.packages("tinytex")
+          tinytex::install_tinytex()
+        shell: Rscript {0}
 
       - name: Session info
         run: |
