@@ -48,6 +48,15 @@
 #' variance an unbalanced design cannot attribute to any single term and
 #' may be negative under suppression.
 #'
+#' Two term names are reserved, because they mean the same thing whatever
+#' the engine: \code{"residual"} for variance no model term accounts for,
+#' and \code{"shared"} as above. An engine whose underlying implementation
+#' spells these differently must normalise before returning -- the
+#' built-in \code{variancePartition} engine renames \code{"Residuals"} on
+#' the way out. Harmonising the columns but not the vocabulary would
+#' produce results that look comparable and cannot be joined. Every other
+#' term an engine may name as its model does.
+#'
 #' Use \code{\link{newVarianceSummary}} to build a conforming result rather
 #' than assembling the data.frame by hand.
 #'

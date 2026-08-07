@@ -16,6 +16,20 @@
 # varianceResults() output beside engine-specific columns, and a bare 'n'
 # there was ambiguous -- it meant samples for one engine and features for
 # the others. Engines may add their own columns alongside these.
+#
+# Reserved term names. Two terms mean the same thing in every engine and
+# are therefore spelled the same way in every engine:
+#
+#   residual  variance no model term accounts for
+#   shared    variance an unbalanced design cannot attribute to any
+#             single term; may be negative, unlike any other term
+#
+# An engine whose underlying implementation names these differently --
+# variancePartition returns "Residuals" -- normalises before returning.
+# Harmonising the columns but not the vocabulary would leave results that
+# look comparable and cannot be joined, which is worse than not
+# harmonising at all. Engines are free to name every other term as their
+# model does.
 
 .validateVarianceSummary <- function(summaryDf) {
     required <- c("source", "term", "variance_fraction")

@@ -40,7 +40,7 @@ test_that("random-effects formulas reach the engines that support them", {
     expect_false("anova" %in% methods)
 
     vp <- Filter(function(x) x$method == "variancePartition", varianceHistory(res))
-    expect_setequal(vp[[1]]$result$term, c("batch", "Residuals"))
+    expect_setequal(vp[[1]]$result$term, c("batch", "residual"))
 })
 
 
@@ -111,7 +111,7 @@ test_that("fixed-effects formulas are unaffected", {
     expect_setequal(methods, c("anova", "variancePartition"))
 
     vp <- Filter(function(x) x$method == "variancePartition", varianceHistory(res))
-    expect_setequal(vp[[1]]$result$term, c("batch", "group", "Residuals"))
+    expect_setequal(vp[[1]]$result$term, c("batch", "group", "residual"))
 })
 
 

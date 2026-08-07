@@ -326,10 +326,20 @@ availableVarianceMethods <- function() {
     # Compute mean variance fractions across features
     variance_fraction <- colMeans(vp, na.rm = TRUE)
 
+    ## Reserved term name. variancePartition calls the unexplained term
+    ## "Residuals" and the anova engine calls it "residual"; left as they
+    ## come, results from the two engines cannot be joined or compared
+    ## row-wise without the caller renaming one of them. Harmonising the
+    ## column schema but not the term vocabulary would make the contract
+    ## half a contract, so the reserved names are normalised here, at the
+    ## engine, rather than left to every consumer.
+    terms <- names(variance_fraction)
+    terms[terms == "Residuals"] <- "residual"
+
     # Return tidy variance summary contract
     newVarianceSummary(
         source = "variancePartition",
-        term = names(variance_fraction),
+        term = terms,
         varianceFraction = as.numeric(variance_fraction),
         nFeatures = nrow(assayMatrix)
     )
