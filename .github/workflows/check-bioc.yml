@@ -79,11 +79,12 @@ jobs:
       - name: R CMD check
         run: |
           tarball <- list.files(pattern = "\\.tar\\.gz$")[1]
-          ## The manual is skipped: the Single Package
-          ## Builder is missing LaTeX.
+          ## The manual is skipped: the Bioconductor devel container ships
+          ## without pdflatex. The Rd checks proper - \usage sections,
+          ## cross-references, missing entries - still run above.
           res <- rcmdcheck::rcmdcheck(
               tarball,
-              args = "--timings", "--no-manual",
+              args = c("--timings", "--no-manual"),
               error_on = "warning",
               check_dir = "check"
           )
