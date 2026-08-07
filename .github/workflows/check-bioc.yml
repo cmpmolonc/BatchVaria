@@ -79,12 +79,11 @@ jobs:
       - name: R CMD check
         run: |
           tarball <- list.files(pattern = "\\.tar\\.gz$")[1]
-          ## The manual is built rather than skipped: the Single Package
-          ## Builder builds it, so malformed Rd that passes --no-manual
-          ## would fail there and not here.
+          ## The manual is skipped: the Single Package
+          ## Builder is missing LaTeX.
           res <- rcmdcheck::rcmdcheck(
               tarball,
-              args = "--timings",
+              args = "--timings", "--no-manual",
               error_on = "warning",
               check_dir = "check"
           )
