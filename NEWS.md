@@ -10,8 +10,8 @@ Initial Bioconductor submission.
 * A validity method checks both ledgers structurally and referentially:
   entries are well formed, and the assays and `colData` columns they name
   exist. This runs at construction and on `validObject()`. It cannot run
-  anywhere else -- `[`, `assay<-`, `colData<-` and `metadata<-` do not
-  invoke S4 validity -- so it covers a malformed object handed to the
+  anywhere else - `[`, `assay<-`, `colData<-` and `metadata<-` do not
+  invoke S4 validity - so it covers a malformed object handed to the
   constructor and nothing that happens to an object afterwards.
 
 * Mutation after construction is covered instead by a fingerprint recorded
@@ -29,12 +29,12 @@ Initial Bioconductor submission.
   correction ledger recording the method, the input and output assays, the
   batch variable, any variables preserved during correction, and the total
   variance before and after. `preserve` names variables whose variation is
-  to be kept; note that `limma::removeBatchEffect()` has an argument spelled
+  to be kept; note that `limma::removeBatchEffect()` has an argument named 
   `covariates` that means the opposite.
 
 * A correction that returns an assay indistinguishable from its input warns
   and is recorded in the ledger as `no_op`. A method can succeed and change
-  nothing -- `limma::removeBatchEffect()` does exactly this when batch is
+  nothing - `limma::removeBatchEffect()` does exactly this when batch is
   aliased with the preserved design, and reports it through a message rather
   than a trappable condition. Undetected, the result flows downstream as a
   correction and every comparison against the input assay becomes a
