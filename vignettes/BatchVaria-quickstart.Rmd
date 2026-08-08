@@ -66,7 +66,7 @@ the effect of the design rather than differences between methods.
 
 We then apply ComBat twice. The first call corrects for batch alone. The second
 additionally names `group` as a variable to preserve, so the batch effect is
-estimated adjusted for it.
+estimated adjusted for the named preservation variable.
 
 ```{r corrections, message=FALSE}
 bv <- runCorrection(
@@ -186,10 +186,7 @@ absVar <- merge(
 absVar$absolute <- round(absVar$variance_fraction * absVar$total_variance, 1)
 
 ## as.data.frame(), because pivot_wider() returns a tibble and tibble
-## prints three significant figures: 141.0, 144.6 and 146.2 all come out
-## as "141.", "145.", "146.", and 9.9 sits beside 2440.6 at different
-## precisions. The comparison this table exists to support is exactly the
-## one that resolution hides.
+## prints three significant figure.
 as.data.frame(tidyr::pivot_wider(
     absVar[, c("assay", "term", "absolute")],
     names_from = "term",
