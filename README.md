@@ -11,14 +11,13 @@ challenging because correction can remove biological signal or distort
 sample relationships.
 
 BatchVaria quantifies variance components before and after correction and
-records every decomposition together with the total variance it is relative
-to and the share the experimental design cannot attribute to any single
+records every decomposition alongside total dataset variance and the share experimental design cannot attribute to any single
 term. That provenance is what lets it distinguish a correction that removed
 unwanted variation from one that merely removed variation.
 
 # Installation
 
-BatchVaria is under review at Bioconductor. Once accepted, install with
+Install BatchVaria with
 [BiocManager](https://cran.r-project.org/package=BiocManager):
 
 ``` r
@@ -34,16 +33,6 @@ For the development version:
 ``` r
 BiocManager::install(version = "devel")
 BiocManager::install("BatchVaria")
-```
-
-In the meantime, install from GitHub:
-
-``` r
-if (!requireNamespace("remotes", quietly = TRUE)) {
-    install.packages("remotes")
-}
-
-remotes::install_github("cmpmolonc/BatchVaria")
 ```
 
 # Quick start
@@ -117,8 +106,8 @@ unlist(vt[vt$component == "group", c("raw", "corrected")]) / 100 * av$total_vari
 Total variance fell by 35%. The group fraction rose because the denominator
 collapsed, not because biological signal was preserved: in absolute terms it
 fell, from 144.5 to 126.0. Meanwhile 5.6% of the batch effect remains, and
-`shared` — the variance this confounded design cannot attribute to either
-term — has gone negative, indicating the correction distorted the design's
+`shared` (the variance this confounded design cannot attribute to either
+term) has gone negative, indicating the correction distorted the design's
 attributability.
 
 Multiplying a fraction by its assay's total variance gives a quantity that is
@@ -146,8 +135,7 @@ party would use.
 
 # Further detail
 
-Further detail and worked examples are in the package vignette, which is the
-authoritative description of current behaviour:
+Further detail and worked examples are in the package vignette.
 
 ``` r
 vignette("BatchVaria-quickstart")
