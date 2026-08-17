@@ -10,11 +10,13 @@ profileVariance(
   methods = "anova",
   assayName = NULL,
   assays = NULL,
-  ...
+  ...,
+  verbose = FALSE
 )
 }
 \arguments{
-\item{object}{BatchVariaData object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{formula}{Model formula specifying covariates}
 
@@ -28,9 +30,14 @@ alternative to \code{assays} when only one assay is of interest;
 \item{assays}{Character vector of assays to profile (default: all assays)}
 
 \item{...}{Additional arguments passed to variance engines}
+
+\item{verbose}{Show progress output from the variance engines
+(default \code{FALSE}). This governs only what the engines report
+about their progress. Diagnostics BatchVaria derives itself are
+warnings and are always raised, whatever \code{verbose} is set to.}
 }
 \value{
-Updated BatchVariaData object
+Updated \code{SummarizedExperiment}
 }
 \description{
 Profile sources of variance in expression data
@@ -59,7 +66,7 @@ participate.
 Only \code{anova} runs by default. Profiling with every registered
 engine would leave the ledger holding several decompositions after a
 single call, and \code{\link{varianceTable}} and its relatives
-summarise exactly one -- so the shortest path through the package
+summarise exactly one - so the shortest path through the package
 would end in an error asking which was meant. It would also make
 \code{\link{registerVarianceEngine}} change the behaviour of calls
 that never named the new engine. Comparing engines is worth doing, but

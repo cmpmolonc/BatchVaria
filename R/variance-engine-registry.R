@@ -34,10 +34,10 @@
 #' The return value must be a data.frame with one row per model term and
 #' the columns
 #' \itemize{
-#'   \item \code{source} -- the engine's own name
-#'   \item \code{term} -- the model term the variance is attributed to
-#'   \item \code{variance_fraction} -- that term's share of total variance
-#'   \item \code{n_features} -- features the decomposition was computed over
+#'   \item \code{source} - the engine's own name
+#'   \item \code{term} - the model term the variance is attributed to
+#'   \item \code{variance_fraction} - that term's share of total variance
+#'   \item \code{n_features} - features the decomposition was computed over
 #' }
 #'
 #' Extra columns are allowed and are carried through to
@@ -51,7 +51,7 @@
 #' Two term names are reserved, because they mean the same thing whatever
 #' the engine: \code{"residual"} for variance no model term accounts for,
 #' and \code{"shared"} as above. An engine whose underlying implementation
-#' spells these differently must normalise before returning -- the
+#' spells these differently must normalise before returning - the
 #' built-in \code{variancePartition} engine renames \code{"Residuals"} on
 #' the way out. Harmonising the columns but not the vocabulary would
 #' produce results that look comparable and cannot be joined. Every other
@@ -59,6 +59,15 @@
 #'
 #' Use \code{\link{newVarianceSummary}} to build a conforming result rather
 #' than assembling the data.frame by hand.
+#'
+#' \strong{Progress output.} An engine need not gate its own progress
+#' reporting. \code{\link{profileVariance}} suppresses messages raised
+#' while an engine runs unless called with \code{verbose = TRUE}, and it
+#' does so at the point it invokes the engine, so registered engines
+#' inherit the policy. Report progress with \code{message()} rather than
+#' \code{cat()} to participate in it. Anything an engine has found out
+#' about the data, as opposed to reporting about its own progress, should
+#' be a warning: those are never suppressed.
 #'
 #' @seealso \code{\link{availableVarianceMethods}},
 #'   \code{\link{unregisterVarianceEngine}},

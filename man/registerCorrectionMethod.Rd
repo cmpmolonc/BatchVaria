@@ -55,12 +55,21 @@ Note that \code{removeBatchEffect()} \emph{also} has an argument spelled
 \code{covariates}, and it means the opposite: numeric covariates to be
 adjusted for, that is, removed. An adapter that wires \code{preserve} to
 \code{covariates} will strip exactly the signal it was asked to protect,
-and the result will still look like a successful correction -- batch
+and the result will still look like a successful correction - batch
 variance falls and the table reads as expected. Check the direction.
 
 \strong{Batch.} \code{batch} is a single column name, validated by
 \code{\link{runCorrection}}. Methods accepting more than one batch
 variable must expose the others through \code{...}.
+
+\strong{Progress output.} A method need not gate its own progress
+reporting. \code{\link{runCorrection}} suppresses messages raised while
+a method runs unless called with \code{verbose = TRUE}, and it does so
+at the point it invokes the method, so registered methods inherit the
+policy. Report progress with \code{message()} rather than \code{cat()}
+to participate in it. Anything a method has found out about the data,
+as opposed to reporting about its own progress, should be a warning:
+those are never suppressed.
 
 \strong{Return value.} A numeric matrix whose \code{dim} and
 \code{dimnames} are \code{identical()} to those of \code{assayMatrix}.
@@ -71,9 +80,9 @@ comparison without raising an error. The check is applied to whatever a
 method returns, because a conforming signature does not guarantee a
 conforming result.
 
-Methods take a matrix and return a matrix. The \code{BatchVariaData}
-container is never passed in, and recording the correction in the ledger
-is \code{\link{runCorrection}}'s responsibility, not the method's.
+Methods take a matrix and return a matrix. The container is never
+passed in, and recording the correction in the ledger is
+\code{\link{runCorrection}}'s responsibility, not the method's.
 }
 \examples{
 ## a method that centres each batch on the overall feature mean

@@ -2,9 +2,10 @@
 #' Apply batch correction to expression data
 #'
 #' Runs a specified batch correction method on an assay and stores the
-#' corrected matrix as a new assay within the \code{BatchVariaData} object.
+#' corrected matrix as a new assay on the object.
 #'
-#' @param object A \code{BatchVariaData} object.
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param method Character string specifying the correction method
 #' @param batch Column name in \code{colData(object)} defining batch structure.
 #' @param preserve Optional character vector of \code{colData} column names
@@ -14,8 +15,12 @@
 #' @param assayName Name of the input assay (default \code{"raw"}).
 #' @param newAssayName Optional corrected assay name.
 #' @param ... Additional arguments passed to the correction engine.
+#' @param verbose Show progress output from the correction engine
+#'   (default \code{FALSE}). This governs only what the engine reports
+#'   about its progress. Diagnostics BatchVaria derives itself are
+#'   warnings and are always raised, whatever \code{verbose} is set to.
 #'
-#' @return Updated \code{BatchVariaData} object with corrected assay added.
+#' @return Updated \code{SummarizedExperiment} with corrected assay added.
 #'
 #' @details
 #' Two methods are registered on load. \code{"combat"} calls
@@ -27,7 +32,7 @@
 #'
 #' Both expect log-scale data. Neither is appropriate on raw counts, and
 #' \code{removeBatchEffect()} in particular is intended for exploratory work
-#' -- visualisation, clustering, distance calculations -- rather than as
+#' - visualisation, clustering, distance calculations - rather than as
 #' input to differential expression testing, where the batch term belongs in
 #' the model instead. Correcting first and testing afterwards understates
 #' the residual variance and overstates significance.
@@ -54,9 +59,10 @@ runCorrection <- function(
     preserve = NULL,
     assayName = "raw",
     newAssayName = NULL,
-    ...
+    ...,
+    verbose = FALSE
 ) {
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     if (!assayName %in% SummarizedExperiment::assayNames(object)) {
         stop("Assay not found: ", assayName)
@@ -96,13 +102,13 @@ runCorrection <- function(
     ## design assembled for one is never forced through another.
     correctionFun <- .getCorrectionMethod(method)
 
-    corrected <- correctionFun(
+    corrected <- .withEngineOutput(verbose, correctionFun(
         assayMatrix = assayMatrix,
         batch = batch,
         sampleData = sampleData,
         preserve = preserve,
         ...
-    )
+    ))
 
     corrected <- .validateCorrectionResult(corrected, assayMatrix, method)
 

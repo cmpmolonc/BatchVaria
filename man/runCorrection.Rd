@@ -11,11 +11,13 @@ runCorrection(
   preserve = NULL,
   assayName = "raw",
   newAssayName = NULL,
-  ...
+  ...,
+  verbose = FALSE
 )
 }
 \arguments{
-\item{object}{A \code{BatchVariaData} object.}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{method}{Character string specifying the correction method}
 
@@ -31,13 +33,18 @@ than removed.}
 \item{newAssayName}{Optional corrected assay name.}
 
 \item{...}{Additional arguments passed to the correction engine.}
+
+\item{verbose}{Show progress output from the correction engine
+(default \code{FALSE}). This governs only what the engine reports
+about its progress. Diagnostics BatchVaria derives itself are
+warnings and are always raised, whatever \code{verbose} is set to.}
 }
 \value{
-Updated \code{BatchVariaData} object with corrected assay added.
+Updated \code{SummarizedExperiment} with corrected assay added.
 }
 \description{
 Runs a specified batch correction method on an assay and stores the
-corrected matrix as a new assay within the \code{BatchVariaData} object.
+corrected matrix as a new assay on the object.
 }
 \details{
 Two methods are registered on load. \code{"combat"} calls
@@ -49,10 +56,12 @@ in direction, and neither should be expected to reproduce the other.
 
 Both expect log-scale data. Neither is appropriate on raw counts, and
 \code{removeBatchEffect()} in particular is intended for exploratory work
--- visualisation, clustering, distance calculations -- rather than as
+\itemize{
+\item visualisation, clustering, distance calculations - rather than as
 input to differential expression testing, where the batch term belongs in
 the model instead. Correcting first and testing afterwards understates
 the residual variance and overstates significance.
+}
 
 \code{removeBatchEffect()} fits \code{batch} and the \code{preserve}
 design simultaneously, so a design in which the two are close to aliased

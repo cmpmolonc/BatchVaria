@@ -1,6 +1,7 @@
 #' Profile sources of variance in expression data
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param formula Model formula specifying covariates
 #' @param methods Character vector of variance engines to apply. Defaults
 #'   to \code{"anova"} alone; name several to profile with each.
@@ -9,8 +10,12 @@
 #'   \code{assays} takes precedence if both are supplied.
 #' @param assays Character vector of assays to profile (default: all assays)
 #' @param ... Additional arguments passed to variance engines
+#' @param verbose Show progress output from the variance engines
+#'   (default \code{FALSE}). This governs only what the engines report
+#'   about their progress. Diagnostics BatchVaria derives itself are
+#'   warnings and are always raised, whatever \code{verbose} is set to.
 #'
-#' @return Updated BatchVariaData object
+#' @return Updated \code{SummarizedExperiment}
 #'
 #' @details
 #' Features with zero or non-finite variance are excluded from every
@@ -36,7 +41,7 @@
 #' Only \code{anova} runs by default. Profiling with every registered
 #' engine would leave the ledger holding several decompositions after a
 #' single call, and \code{\link{varianceTable}} and its relatives
-#' summarise exactly one -- so the shortest path through the package
+#' summarise exactly one - so the shortest path through the package
 #' would end in an error asking which was meant. It would also make
 #' \code{\link{registerVarianceEngine}} change the behaviour of calls
 #' that never named the new engine. Comparing engines is worth doing, but
@@ -79,9 +84,10 @@ profileVariance <- function(
     methods = "anova",
     assayName = NULL,
     assays = NULL,
-    ...
+    ...,
+    verbose = FALSE
 ) {
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     available_assays <- SummarizedExperiment::assayNames(object)
 
@@ -170,12 +176,12 @@ profileVariance <- function(
 
             summaryDf <- tryCatch(
                 {
-                    out <- engine_fun(
+                    out <- .withEngineOutput(verbose, engine_fun(
                         assayMatrix = assayMatrix,
                         formula = formula,
                         sampleData = sampleData,
                         ...
-                    )
+                    ))
 
                     # ------------------------------------
                     # Enforce variance result contract
