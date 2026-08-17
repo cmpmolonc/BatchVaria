@@ -1,6 +1,6 @@
-# BatchVaria 0.99.0
+# BatchVaria 0.99.1
 
-Initial Bioconductor submission.
+Initial Bioconductor submission, revised in response to package review.
 
 ## Container and provenance
 

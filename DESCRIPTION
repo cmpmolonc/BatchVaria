@@ -1,6 +1,6 @@
 Package: BatchVaria
 Title: Variance-Aware Evaluation of Batch Correction
-Version: 0.99.0
+Version: 0.99.1
 Authors@R: 
     person(
         given = "Nicholas",
