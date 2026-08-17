@@ -18,7 +18,8 @@ Invisibly, a list with elements \code{assays} (character),
 \description{
 Prints what has been done to an object: its dimensions and assays, the
 corrections that produced each assay, and the variance decompositions
-recorded against them. Returns the same information as data.frames.
+recorded against them. Returns the two tables invisibly, as
+data.frames.
 }
 \details{
 This is the readable view of the two ledgers BatchVaria writes into
