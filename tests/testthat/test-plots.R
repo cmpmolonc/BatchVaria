@@ -1,6 +1,6 @@
-test_that("plotPCA returns list of ggplots", {
+test_that("plotBasisProjection returns list of ggplots", {
     bv <- exampleBatchVaria()
-    p <- plotPCA(bv)
+    p <- plotBasisProjection(bv)
 
     ## is list
     expect_true(is.list(p))
@@ -50,22 +50,23 @@ test_that("plotBatchEntropy works", {
 })
 
 
-test_that("plotPCA validates its inputs", {
+test_that("plotBasisProjection validates its inputs", {
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 40, nSamples = 8)
 
-    expect_error(plotPCA(bv, assays = "nope"), "Assays not found: nope")
+    expect_error(plotBasisProjection(bv, assays = "nope"), "Assays not found: nope")
     expect_error(
-        plotPCA(bv, assays = c("raw", "nope", "nah")),
+        plotBasisProjection(bv, assays = c("raw", "nope", "nah")),
         "Assays not found: nope, nah"
     )
     ## previously failed with "arguments imply differing number of rows"
-    expect_error(plotPCA(bv, colourBy = "nope"), "colourBy not found in colData")
+    expect_error(plotBasisProjection(bv, colourBy = "nope"), "colourBy not found in colData")
 
-    ## S4 dispatch already rejects the wrong class
+    ## Rejecting a non-SummarizedExperiment is now an explicit guard
+    ## rather than a dispatch failure, since this is a plain function.
     expect_error(
-        plotPCA(SummarizedExperiment::SummarizedExperiment()),
-        "unable to find an inherited method"
+        plotBasisProjection(list(a = 1)),
+        "must be a SummarizedExperiment"
     )
 })
 
@@ -74,7 +75,7 @@ test_that("plotPCATrajectory validates its inputs", {
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 40, nSamples = 8)
 
-    expect_error(plotPCATrajectory(list(a = 1)), "must be a BatchVariaData")
+    expect_error(plotPCATrajectory(list(a = 1)), "must be a SummarizedExperiment")
     expect_error(
         plotPCATrajectory(bv, assayBefore = "nope"),
         "Assays not found: nope"
@@ -105,10 +106,10 @@ test_that("PCA plots require at least two samples", {
         assays = list(raw = mat, raw_x = mat),
         colData = S4Vectors::DataFrame(batch = "A", row.names = "s1")
     )
-    bv <- BatchVariaData(se)
+    bv <- se
 
     ## previously: "cannot rescale a constant/zero column to unit variance"
-    expect_error(plotPCA(bv), "At least two samples")
+    expect_error(plotBasisProjection(bv), "At least two samples")
     expect_error(
         plotPCATrajectory(bv, assayAfter = "raw_x"),
         "At least two samples"
@@ -189,7 +190,7 @@ test_that("plotVarianceComposition validates method and assays", {
         plotVarianceComposition(bv, assays = "nope"),
         "No variance results recorded for assay\\(s\\) nope"
     )
-    expect_error(plotVarianceComposition(list(a = 1)), "must be a BatchVariaData")
+    expect_error(plotVarianceComposition(list(a = 1)), "must be a SummarizedExperiment")
 
     bare <- exampleBatchVaria(nGenes = 40, nSamples = 8)
     expect_error(plotVarianceComposition(bare), "No variance history found")

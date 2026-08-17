@@ -91,10 +91,10 @@ test_that("trajectory before-positions do not depend on the comparator", {
 })
 
 
-test_that("plotPCA panels share a basis across assays", {
+test_that("plotBasisProjection panels share a basis across assays", {
     bv <- pcaFixture()
 
-    plots <- plotPCA(
+    plots <- plotBasisProjection(
         bv,
         assays = c("raw", "raw_combat"), colourBy = "batch"
     )
@@ -118,7 +118,7 @@ test_that("the basis tolerates constant features and rejects empty ones", {
         assays = list(raw = mat),
         colData = SummarizedExperiment::colData(bv)
     )
-    obj <- BatchVariaData(se)
+    obj <- se
 
     ## A constant feature is kept in the basis on its original scale
     ## rather than dropped. Dropping it would remove it from the coordinate
@@ -136,7 +136,7 @@ test_that("the basis tolerates constant features and rejects empty ones", {
         colData = SummarizedExperiment::colData(bv)
     )
     expect_error(
-        BatchVaria:::.referenceBasis(BatchVariaData(seDead), "raw"),
+        BatchVaria:::.referenceBasis(seDead, "raw"),
         "fewer than two features"
     )
 })
@@ -145,8 +145,8 @@ test_that("the basis tolerates constant features and rejects empty ones", {
 test_that("variance introduced in a reference-flat feature is not lost", {
     ## A correction that puts signal into a previously flat feature is
     ## exactly what a distorting correction does. Excluding such features
-    ## from the basis made that variance vanish from the measurement --
-    ## retention came back as 1.0 -- rather than counting as off-basis.
+    ## from the basis made that variance vanish from the measurement -
+    ## retention came back as 1.0 - rather than counting as off-basis.
     set.seed(1)
     bv <- exampleBatchVaria(nGenes = 100)
     mat <- as.matrix(SummarizedExperiment::assay(bv, "raw"))
@@ -160,7 +160,7 @@ test_that("variance introduced in a reference-flat feature is not lost", {
         assays = list(raw = mat, revived = revived),
         colData = SummarizedExperiment::colData(bv)
     )
-    obj <- BatchVariaData(se)
+    obj <- se
 
     res <- basisRetention(obj, reference = "raw")
 

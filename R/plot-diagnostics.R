@@ -1,89 +1,81 @@
 #'
-#' Plot PCA of expression data
+#' Plot samples projected onto a reference assay's basis
 #'
-#' Visualise global sample structure using Principal Component Analysis (PCA).
-#' This function extracts an expression assay from a \code{BatchVariaData}
-#' object, performs PCA on the sample-wise expression matrix, and plots the
-#' first two principal components. Samples can optionally be coloured by a
-#' variable in \code{colData}.
+#' Draws the coordinates returned by \code{\link{basisProjection}}: every
+#' assay projected onto a single basis fitted on a reference assay, so
+#' panels placed side by side are directly comparable.
 #'
-#' @param object A \code{BatchVariaData} object.
-#' @param assays assays to use for PCA (default \code{"raw"}).
-#' @param colourBy Optional column name from \code{colData(object)} used to
-#' colour samples.
-#' @param reference Assay whose PCA basis every panel is projected onto.
-#'   Inferred from the correction lineage when \code{NULL}.
-#' @param ... Further arguments, required by the generic; unused.
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
+#' @param assays Character vector of assays to plot (default \code{"raw"}).
+#' @param colourBy Column name from \code{colData(object)} used to colour
+#'   samples (default \code{"batch"}).
+#' @param reference Assay supplying the basis every panel is projected
+#'   onto. Inferred from the correction lineage when \code{NULL}.
 #'
-#' @return A list of  \code{ggplot2} objects (one per assay).
+#' @return A list of \code{ggplot2} objects, one per assay.
 #'
 #' @details
-#' PCA is computed on the **transposed expression matrix** so that samples
-#' represent observations and genes represent variables. The first two
-#' principal components are plotted.
-#'
 #' All panels share one basis, fitted on \code{reference} and used to
 #' project every assay. Fitting a PCA separately per panel would make
-#' "PC1" a different direction in each, so panels placed side by side
-#' could not be compared even though their axes carry the same labels.
-#' See \code{\link{comparePCA}} for the shared-basis convention used
-#' throughout the package.
+#' "PC1" a different direction in each, so panels carrying the same axis
+#' labels could not be compared: a sample would appear to move between
+#' panels because the axes moved, not because the sample did.
 #'
-#' If \code{colourBy} is specified, the corresponding variable from
-#' \code{colData(object)} is used to colour points in the plot.
+#' The axes are therefore the reference's principal components, not those
+#' of the assay in the panel, which is why this is named for the basis
+#' rather than for PCA. What a panel shows is where an assay's samples sit
+#' in the reference's structure.
 #'
+#' This is a convenience wrapper. \code{\link{basisProjection}} returns the
+#' same coordinates as a data.frame for plotting by other means.
+#'
+#' @seealso \code{\link{basisProjection}} for the coordinates,
+#'   \code{\link{basisRetention}} for how much variance stays on the basis.
 #'
 #' @examples
 #' set.seed(1)
 #' bv <- exampleBatchVaria(nGenes = 100)
 #'
-#' plotPCA(
+#' plotBasisProjection(
 #'     bv,
 #'     assays = "raw",
 #'     colourBy = "batch"
 #' )
 #'
-#' @importFrom BiocGenerics plotPCA
 #' @export
-setMethod("plotPCA", "BatchVariaData", function(
+plotBasisProjection <- function(
     object,
     assays = "raw",
     colourBy = "batch",
-    reference = NULL,
-    ...
+    reference = NULL
 ) {
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    missingAssays <- setdiff(assays, SummarizedExperiment::assayNames(object))
-    if (length(missingAssays) > 0) {
-        stop("Assays not found: ", paste(missingAssays, collapse = ", "))
-    }
+    .check_se(object)
 
     if (!colourBy %in% colnames(SummarizedExperiment::colData(object))) {
         stop("colourBy not found in colData: ", colourBy)
     }
 
-    if (ncol(object) < 2) {
-        stop("At least two samples are required for PCA")
-    }
+    ## Coordinates come from the exported accessor rather than from the
+    ## internal helpers, so the plot is genuinely a layer over the public
+    ## API and cannot drift from what a user reproducing it would get.
+    ## basisProjection() validates assays, sample count and reference.
+    coords <- basisProjection(
+        object,
+        assays = assays,
+        nPCs = 2,
+        reference = reference
+    )
 
-    ## Panels sit side by side and invite comparison, so they share one
-    ## basis: a per-panel fit would label different directions "PC1".
-    reference <- .resolveBaseline(object, assays, reference)
-    if (is.null(reference)) {
-        reference <- assays[1]
-    }
-    basis <- .referenceBasis(object, reference)
+    colourVals <- SummarizedExperiment::colData(object)[[colourBy]]
+    names(colourVals) <- colnames(object)
 
-    plots <- lapply(assays, function(a) {
-        scores <- .projectOntoBasis(object, a, basis)
-
-        df <- data.frame(
-            PC1 = scores[, 1],
-            PC2 = scores[, 2],
-            colour = SummarizedExperiment::colData(object)[[colourBy]]
-        )
+    lapply(assays, function(a) {
+        df <- coords[coords$assay == a, , drop = FALSE]
+        df$colour <- colourVals[df$sample]
 
         ggplot2::ggplot(df, ggplot2::aes(
             x = .data$PC1, y = .data$PC2,
@@ -91,11 +83,13 @@ setMethod("plotPCA", "BatchVariaData", function(
         )) +
             ggplot2::geom_point(size = 2) +
             ggplot2::theme_minimal() +
-            ggplot2::ggtitle(paste("PCA:", a))
+            ggplot2::labs(
+                title = paste("Projection:", a),
+                subtitle = paste("basis:", df$reference[1]),
+                colour = colourBy
+            )
     })
-
-    plots
-})
+}
 
 #'
 #' Plot variance composition across model terms
@@ -108,7 +102,8 @@ setMethod("plotPCA", "BatchVariaData", function(
 #' contribution of batch effects, biological covariates, and residual
 #' variance.
 #'
-#' @param object A \code{BatchVariaData} object.
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assays Character vector of assays to plot. Defaults to every assay
 #'   profiled with \code{method}.
 #' @param method Variance engine used to compute the results (default
@@ -156,9 +151,7 @@ plotVarianceComposition <- function(
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     vh <- metadata(object)$variance_history
 
@@ -366,7 +359,8 @@ plotVarianceDelta <- function(evalResult) {
 #' Computes pairwise sample distances and visualises them as a heatmap.
 #'
 #' @importFrom tidyselect all_of
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assayName Character string specifying assay name
 #'   (default \code{"raw"})
 #'
@@ -378,7 +372,7 @@ plotVarianceDelta <- function(evalResult) {
 #' @export
 plotSampleDistance <- function(object, assayName = "raw") {
     ## Validate object
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     if (!assayName %in% SummarizedExperiment::assayNames(object)) {
         stop("Assay not found: ", assayName)
@@ -452,7 +446,8 @@ plotSampleDistance <- function(object, assayName = "raw") {
 #' Visualises change in variance contribution (relative to baseline)
 #' across model terms using a polar (radar) representation.
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assays Character vector of assays (default: all)
 #' @param method Character vector of variance methods
 #' @param baseline Baseline assay
@@ -528,7 +523,8 @@ plotVarianceRadar <- function(
 #' Computes local neighbourhood entropy based on k-nearest neighbours
 #' in PCA space to assess batch mixing.
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assayName Assay name
 #' @param batchVar Column in colData representing batch
 #' @param k Number of neighbours
@@ -553,9 +549,7 @@ plotBatchEntropy <- function(
     ## -----------------------------
     ## Defensive checks
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     if (!assayName %in% SummarizedExperiment::assayNames(object)) {
         stop("Assay not found: ", assayName)
@@ -630,7 +624,8 @@ plotBatchEntropy <- function(
 #'
 #' Plot PCA correction trajectories
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assayBefore baseline assay
 #' @param assayAfter corrected assay
 #' @param colourBy variable for colouring
@@ -668,9 +663,7 @@ plotPCATrajectory <- function(
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     missingAssays <- setdiff(
         c(assayBefore, assayAfter),
