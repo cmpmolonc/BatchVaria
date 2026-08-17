@@ -1,10 +1,11 @@
 #' Record variance decomposition results
 #'
 #' Stores the output of a variance decomposition method in the internal
-#' variance ledger of a \code{BatchVariaData} object. Each entry captures
+#' variance ledger held in the object's \code{metadata()}. Each entry captures
 #' the assay, model formula, method used, and resulting variance summary.
 #'
-#' @param object A \code{BatchVariaData} object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assayName Character. Name of the assay associated with the result
 #' @param formula Model formula used for variance decomposition
 #' @param result Data frame containing variance decomposition results.
@@ -17,7 +18,7 @@
 #'   metadata rather than a failure, and nothing downstream reads it.
 #' @param method Character. Name of the variance decomposition method
 #'
-#' @return Updated \code{BatchVariaData} object with appended variance record
+#' @return Updated \code{SummarizedExperiment} with appended variance record
 #'
 #' @details
 #' Results are appended to \code{metadata(object)$variance_history} as a list of
@@ -54,7 +55,7 @@ recordVariance <- function(
     result,
     method = "variancePartition"
 ) {
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     ## recordVariance() is exported, so it is a way into the ledger that
     ## does not pass through profileVariance(). Enforce the result contract
@@ -112,7 +113,8 @@ recordVariance <- function(
 #' from the variance ledger, for a single method and model formula.
 #'
 #' @importFrom rlang .data
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assays Character vector of assay names to include
 #' @param method Variance method to summarise. Required when the ledger
 #'   holds results for more than one method.
@@ -131,9 +133,9 @@ recordVariance <- function(
 #'
 #' @details
 #' A variance table describes one decomposition. Results from different
-#' engines are not commensurable -- \code{pca} reports variance along
+#' engines are not commensurable - \code{pca} reports variance along
 #' principal axes while \code{anova} and \code{variancePartition} report
-#' variance attributable to model terms -- so stacking them in a single
+#' variance attributable to model terms - so stacking them in a single
 #' table produces columns that sum to well over 100\%. Likewise, the same
 #' assay profiled under two formulas yields two different decompositions.
 #'
@@ -169,7 +171,7 @@ varianceTable <- function(
     formatDelta = FALSE,
     digits = 2
 ) {
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     vh <- metadata(object)$variance_history
 
@@ -320,7 +322,8 @@ varianceTable <- function(
 #'
 #' Summarise variance change vs raw for a model term
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param term Model term to evaluate (e.g. "batch")
 #' @param assays Assays to include
 #' @param method Variance method to summarise. Required when the ledger

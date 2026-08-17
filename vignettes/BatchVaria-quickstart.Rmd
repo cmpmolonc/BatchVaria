@@ -18,6 +18,7 @@ vignette: >
 ```{r setup, message=FALSE, warning=FALSE}
 library(BatchVaria)
 library(SummarizedExperiment)
+library(BiocStyle)
 ```
 
 # Overview
@@ -25,34 +26,57 @@ library(SummarizedExperiment)
 High-throughput transcriptomic datasets frequently contain unwanted technical variation arising from batch effects. Numerous batch correction methods exist, but selecting an appropriate method is challenging because correction can remove biological signal or distort sample relationships. BatchVaria provides a framework for quantifying variance components, tracking variance changes after correction, and evaluating correction performance using multiple metrics, enabling evidence-based selection of batch correction strategies.
 <br>
 <br>
-While tools such as ComBat, limma, and BatchQC provide batch correction and diagnostic visualisations, BatchVaria focuses specifically on quantitative evaluation of correction performance across multiple assays and correction strategies within a unified framework. BatchVaria unifies variance decomposition, tracking, and comparison into a single coherent workflow.
+While `r Biocpkg("sva")`, `r Biocpkg("limma")` and `r Biocpkg("BatchQC")` provide batch correction and diagnostic visualisations, BatchVaria focuses specifically on quantitative evaluation of correction performance across multiple assays and correction strategies within a unified framework. BatchVaria unifies variance decomposition, tracking, and comparison into a single coherent workflow, built on `r Biocpkg("SummarizedExperiment")` and using `r Biocpkg("variancePartition")` as one of its two variance engines.
+
+If you use BatchVaria in published work, please cite Moir N, Sherwood K,
+Simpson TI (2026), *BatchVaria: a variance-aware framework for evaluating
+batch correction in high-dimensional omics data*, bioRxiv,
+[doi:10.64898/2026.05.07.721996](https://doi.org/10.64898/2026.05.07.721996).
+`citation("BatchVaria")` prints the same entry.
 
 ---
 
 # Installation
 
-```{r installation}
-# Install from Bioconductor (devel)
-# BiocManager::install("BatchVaria")
+Install the release version with `r CRANpkg("BiocManager")`:
+
+```{r installation-release, eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
+BiocManager::install("BatchVaria")
 ```
+
+For the development version:
+
+```{r installation-devel, eval=FALSE}
+BiocManager::install(version = "devel")
+BiocManager::install("BatchVaria")
+```
+
+The development source is at `r Githubpkg("cmpmolonc/BatchVaria")`.
 
 # Example Dataset
 
-We begin with a synthetic dataset built to reflect the situation batch
-correction is hardest in: batch and biology are *partially confounded*. Most
-control samples sit in one batch and most treated samples in the other, so the
-two effects are not cleanly separable.
+We begin with a synthetic dataset with *partially confounded* batch and biology. This creates a situation where effective batch correction can be challenging. Within this dataset, most control samples sit in one batch and most treated samples in the other, so effects are not cleanly separable.
 
 ```{r runCorrection}
 ## exampleBatchVaria() draws random data; seed for a reproducible vignette
 set.seed(1)
 bv <- exampleBatchVaria(confounding = 0.6)
 
+class(bv)
+
 table(
     batch = bv$batch,
     group = bv$group
 )
 ```
+
+BatchVaria leverages `r Biocpkg("SummarizedExperiment")` for storage. Expression matrices are assays, sample
+annotation is `colData()`, and everything the package records goes in
+`metadata()`. See `?"BatchVaria-requirements"` for further detail.
 
 Correction methods are registered rather than hard-coded, so the set available
 is extensible in the same way the variance engines are:
@@ -64,11 +88,11 @@ availableCorrectionMethods()
 This vignette uses `combat` throughout, so that the comparison below isolates
 the effect of the design rather than differences between methods.
 
-We then apply ComBat twice. The first call corrects for batch alone. The second
+ComBat is applied twice. The first call corrects for batch alone. The second
 additionally names `group` as a variable to preserve, so the batch effect is
 estimated adjusted for the named preservation variable.
 
-```{r corrections, message=FALSE}
+```{r corrections}
 bv <- runCorrection(
     bv,
     method = "combat", batch = "batch",
@@ -114,11 +138,34 @@ result is stored in an internal variance ledger keyed on assay, method, formula
 and term.
 
 Because the ledger now holds two decompositions per assay, summaries must say
-which one they mean. Asking for a table without choosing is an error rather than
+which one they mean. Asking for a table without choosing returns an error rather than
 a silent mixture, since the engines' terms are not interchangeable:
 
 ```{r ambiguous, error=TRUE}
 varianceTable(bv, assays = assaysUsed)
+```
+
+## What the object is carrying
+
+`provenance()` reports what has been done, reading both ledgers:
+
+```{r provenance}
+p <- provenance(bv)
+```
+
+Two things there are worth pointing at. The correction table's `preserve`
+column is what distinguishes the two ComBat runs - without it the rows are
+identical but for the assay names, and the comparison this vignette is built
+on would not be reconstructable from the object. The `no_op` column flags a
+correction that returned an assay indistinguishable from its input; a method
+can succeed and change nothing, and recording it on the object means the
+condition outlives the console session that produced it.
+
+It prints that report and returns the same content as a data.frame, so the
+history can be filtered or joined rather than only read:
+
+```{r provenance-return}
+p$corrections[, c("method", "output", "preserve", "no_op")]
 ```
 
 ---
@@ -194,7 +241,7 @@ as.data.frame(tidyr::pivot_wider(
 ))
 ```
 
-Read the `group` row across the assays: 144.6 in `raw`, 126.0 after the naive
+Read down the `group` column: 144.6 in `raw`, 126.0 after the naive
 correction and 127.0 after the protected one. In absolute terms group variance
 barely moves. Its *fraction* meanwhile climbs from 11.3 to 15.2 per cent,
 because the denominator fell from 1281 to 829. The fraction rose because
@@ -202,11 +249,11 @@ something else was removed, not because biological signal grew.
 
 ---
 
-# Two Engines, One Answer -- Until the Design Stops Cooperating
+# Two Engines, One Answer - Until the Design Stops Cooperating
 
 BatchVaria harmonises independent variance-profiling engines onto a common
 schema: the same columns, and the same names for the two terms that mean the
-same thing in any engine -- `residual` and `shared`. The two runs above reach
+same thing in any engine - `residual` and `shared`. Both runs above reach
 their decompositions by different routes: `anova` fits a linear model per
 feature and partitions with Type II sums of squares, while
 `variancePartition` fits mixed models via `lme4`.
@@ -228,7 +275,7 @@ as.data.frame(
 Here they disagree, and the disagreement is the point. On an orthogonal design
 they do not:
 
-```{r orthogonal, message=FALSE}
+```{r orthogonal}
 orth <- profileVariance(
     exampleBatchVaria(confounding = 0),
     ~ batch + group,
@@ -297,8 +344,7 @@ is not evidence of preserved signal, and reading it as such is the easiest way
 to certify a bad correction as a good one.
 
 **The batch effect was not removed.** 5.6 per cent remains, half of what was
-there. The correction cost a third of the dataset's variance and did not finish
-the job it was paying for.
+there.
 
 **`shared` went negative**, from +11.4 per cent to -3.5. The correction did not
 merely fail to resolve the confounding; it distorted the design's
@@ -316,14 +362,15 @@ works, not that the biology survives better.
 That balance is specific to this level of confounding. This vignette uses a
 single value, `confounding = 0.6`; the trade-off moves with it, because as
 batch and group approach aliasing, protecting the covariate increasingly means
-protecting the batch effect along with it. Raising or lowering the parameter
+protecting the batch effect alongside it. Raising or lowering the parameter
 will change which correction looks better on absolute group variance, so treat
 that comparison as a property of the design rather than a general ranking of
 the two calls.
 
-The sign of `shared` is the more dependable signal. Across confounding levels
-it is consistently negative after naive correction and positive after protected
-correction, so a correction that drives it below zero has distorted the
+The sign of `shared` is the more dependable signal. Wherever there is any
+confounding to resolve it is consistently negative after naive correction and
+positive after protected correction, so a correction that drives it below zero
+has distorted the
 design's attributability regardless of what the other fractions report. Being a
 sign rather than a magnitude, that reading needs no threshold and no reference
 distribution - but note it is demonstrated here on simulated data with one
@@ -343,7 +390,9 @@ It retains 0.37 of the original variance structure against 0.99 for both ComBat
 runs, because added noise occupies directions the raw data did not. Note what
 this measure does and does not separate: it distinguishes a correction from a
 distortion, not a good correction from a bad one. Both ComBat runs stay on the
-original axes because ComBat is a per-feature linear shift.
+original axes because ComBat adjusts each feature's location and scale within a
+batch, which rescales the existing structure rather than introducing new
+directions.
 
 The general rule: a variance fraction is a statement about *composition*, not
 about *quantity*. Use fractions to compare terms within an assay, and totals or
@@ -373,12 +422,212 @@ ev <- evaluateCorrections(
 plotVarianceDelta(ev)
 ```
 
-One group of bars per model term, one bar per assay, and the height is the
-signed change in that term's fraction relative to `raw`.  Read left to right: both corrections cut `batch`, the protected run cutting it roughly twice as hard. Both raise `residual`. The difference that matters is
-`shared` - the naive run drives it down by 0.149 while the protected run moves
-it by 0.044, which is the confounded biology being converted into apparent
-residual rather than removed. `raw_noise` cuts `batch` too, by dilution rather
-than correction, which is why no single bar here is sufficient on its own.
+One group of bars per model term, one bar per assay, and height is the signed
+change in that term's fraction relative to `raw` - as a fraction here, where the
+delta table above reported the same quantities as percentages. Terms are drawn
+in alphabetical order: `batch`, `group`, `residual`, `shared`.
+
+Both corrections cut `batch`, the protected run roughly twice as hard, and both
+raise `residual`. The bar that separates them is `shared`. Both push it down,
+and by different amounts - 0.149 for the naive run against 0.044 for the
+protected one - but the amount is not the point. What distinguishes them is
+where they land: the naive run takes `shared` from +0.114 to **-0.035**, while
+the protected run takes it from +0.114 to **+0.070**. As above, a negative
+`shared` means the terms explain more jointly than they do separately, so it is
+the side of zero that carries the finding, not the size of the drop.
+`raw_noise` cuts `batch` too, by dilution rather than correction, which is why
+no single bar here is sufficient on its own.
+
+# Diagnostic Plots
+
+The argument above is made with tables, deliberately: every claim in it is a
+number that can be checked. The plotting layer draws those same quantities, and is
+collected here rather than interleaved so that the two are not confused. Each
+plot below answers one question.
+
+`evaluateCorrections()` computes all three diagnostic families in one call and
+returns them in the form the plotting functions read:
+
+```{r evalall}
+ev <- evaluateCorrections(
+    bv,
+    baseline = "raw",
+    assays = assaysUsed,
+    varianceMethod = "anova"
+)
+
+names(ev)
+```
+
+## Where the variance sits
+
+`plotVarianceComposition()` draws each assay's decomposition as a
+composition: one stacked bar per assay, summing to 100 per cent. It answers
+"what is this assay made of", and needs no baseline - an assay profiled on its
+own can be drawn.
+
+```{r composition, fig.width=8, fig.height=5, out.width="100%"}
+plotVarianceComposition(bv, assays = assaysUsed, method = "anova")
+```
+
+Read it against the totals from `assayVariance()` above, not on its own: the
+bars are shares, so `raw_noise` shows a smaller `batch` share than `raw` while
+its absolute batch variance has *risen*, from 141 to 242. The share fell only
+because the total more than doubled underneath it.
+
+`plotVarianceRadar()` shows the same deltas as the summary figure on polar
+axes, one spoke per term. It is the quicker read when several corrections are
+being compared at once and the question is the *shape* of the change rather
+than its size - two corrections that move the same terms in the same
+proportions trace the same outline.
+
+```{r radar, fig.width=7, fig.height=6, out.width="80%"}
+plotVarianceRadar(bv, assays = assaysUsed, method = "anova")
+```
+
+## Where the samples sit
+
+Every assay is projected onto a single basis fitted on the reference assay,
+rather than each being fitted separately. This is what makes the panels
+comparable: a per-assay fit gives `PC1` a different meaning in each, so
+samples appear to move when only the axes have.
+
+The coordinates are available directly, not only through a plot:
+
+```{r basisprojection}
+coords <- basisProjection(
+    bv,
+    assays = c("raw", "naive"),
+    reference = "raw"
+)
+
+head(coords)
+```
+
+`plotBasisProjection()` draws exactly what that returns, one panel per assay:
+
+```{r basisplot, fig.width=6, fig.height=4.5, out.width="70%", fig.show="hold"}
+for (p in plotBasisProjection(
+    bv,
+    assays = c("raw", "naive", "protected"),
+    reference = "raw"
+)) {
+    print(p)
+}
+```
+
+The `naive` panel repays a careful look, because it does not show what a
+reader expects of a corrected assay: the batches still appear separated. They
+have in fact been brought together - the distance between batch means along
+`PC1` falls from 1.73 to 0.54 standard deviations. What remains on the panel is
+`group`, whose separation *rises* over the same step, from 1.75 to 1.81. At
+`confounding = 0.6` the batch and group labels agree for sixteen of the twenty
+samples, so a panel coloured by batch draws surviving group structure in batch
+colours, and the four samples whose labels disagree are the only ones that give
+it away.
+
+Colouring by the other variable shows what is actually there:
+
+```{r basisplot-group, fig.width=6, fig.height=4.5, out.width="70%"}
+plotBasisProjection(
+    bv,
+    assays = "naive",
+    reference = "raw",
+    colourBy = "group"
+)[[1]]
+```
+
+This is a limit of the panel rather than of the correction, and it is not
+peculiar to this function: wherever batch and biology are confounded, a
+projection coloured by batch cannot distinguish a batch effect that survived
+from biological signal that was preserved. Here it ranks the two corrections
+backwards: set the two corrected panels side by side and `protected` looks
+*more* batch-separated than `naive` - 1.31 standard deviations against 0.54 -
+while carrying a fifth of the batch variance, 1.1 per cent against 5.6. The
+variance table settles what the panel cannot.
+
+There is a second thing these panels cannot show. `raw_noise`, drawn on this
+basis, is nearly indistinguishable from `raw`: the noise it added lies almost
+entirely *off* the reference basis, so it never enters these coordinates,
+despite the assay carrying more than twice the variance. Projecting onto a
+basis shows what happened within the retained structure and is silent about
+structure that left it, which is why `basisRetention()` is reported alongside
+it - scoring `raw_noise` at 0.37 against 0.99 for both ComBat runs.
+
+`plotPCATrajectory()` makes the same comparison as a single panel, drawing an
+arrow from each sample's position before correction to its position after. Use
+it when the question is which samples moved rather than whether the groups
+separate.
+
+```{r trajectory, fig.width=7, fig.height=5, out.width="80%"}
+plotPCATrajectory(bv, assayBefore = "raw", assayAfter = "naive")
+```
+
+It inherits the caveat above: an arrow shows that a sample moved, not which of
+the two confounded variables moved it.
+
+## Whether the sample relationships survived
+
+A correction can leave every variance fraction looking reasonable and still
+rearrange which samples resemble which. Two diagnostics check that directly.
+
+`plotSampleDistance()` draws the sample-sample distance matrix, so blocks of
+mutually similar samples are visible as blocks:
+
+```{r distance, fig.width=6.5, fig.height=5.5, out.width="70%"}
+plotSampleDistance(bv, assayName = "raw")
+```
+
+`plotCorrelationChange()` reduces that to one number per assay: the mean
+absolute change in sample-sample correlation relative to the baseline. Large
+values mean the correction rewrote the relationships between samples, which is
+a different failure from removing too much variance and is not visible in any
+of the variance tables.
+
+```{r corrchange, fig.width=7, fig.height=4.5, out.width="80%"}
+plotCorrelationChange(ev)
+```
+
+Note which assay scores best here: `raw_noise`, at 0.100 against 0.187 for the
+naive correction. The assay this vignette has used throughout as its example of
+a destructive transformation is the one that disturbs sample relationships
+least. That is not a defect in the diagnostic, it is what the diagnostic
+measures - adding independent noise to every feature shrinks all sample
+correlations towards zero fairly evenly, which is a small *change in* the
+correlation structure, whereas shifting feature means per batch rearranges it
+more. The two diagnostics agree that the protected run is gentler than the naive
+one; where they part company is `raw_noise`, which this measure ranks first and
+`basisRetention()` ranks last. That single disagreement is the clearest
+illustration in this vignette of why no one diagnostic settles the question.
+
+## Whether the batches actually mixed
+
+`plotBatchEntropy()` measures local batch mixing: for each sample it looks at
+its `k` nearest neighbours and computes the entropy of their batch labels.
+High entropy means a sample's neighbourhood is batch-mixed; low entropy means
+it still sits among its own batch. This is the neighbourhood-level question
+the global variance fractions cannot answer.
+
+It draws one assay at a time, so the comparison is made by drawing two:
+
+```{r entropy, fig.width=7, fig.height=4, out.width="80%", fig.show="hold"}
+plotBatchEntropy(bv, assayName = "raw", batchVar = "batch", k = 10)
+plotBatchEntropy(bv, assayName = "naive", batchVar = "batch", k = 10)
+```
+
+The distribution moves right after correction, which is the batch effect
+leaving the local structure.
+
+Under partial confounding this should be read with care, and this design shows
+why. With two batches the entropy is bounded above by `log(2)`, about 0.693;
+after the naive correction the mean neighbourhood entropy is 0.65, close to
+that ceiling. But batch and group overlap here, so neighbourhoods that are
+perfectly batch-mixed are neighbourhoods in which the biological groups have
+been mixed too. Entropy approaching its maximum is evidence of overcorrection
+in this design rather than of a job well done - which is the same verdict the
+`shared` term reached, arrived at independently.
+
+---
 
 # Why This Matters
 
@@ -390,7 +639,7 @@ Batch correction is frequently applied as a routine preprocessing step, yet it i
 
 The typical BatchVaria workflow is:
 
-1. Load expression data into BatchVariaData
+1. Load expression data into a SummarizedExperiment
 2. Apply batch correction methods with runCorrection(), naming any
    variables to preserve
 3. Profile variance using profileVariance()

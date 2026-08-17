@@ -13,7 +13,8 @@ recordVariance(
 )
 }
 \arguments{
-\item{object}{A \code{BatchVariaData} object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{assayName}{Character. Name of the assay associated with the result}
 
@@ -31,11 +32,11 @@ metadata rather than a failure, and nothing downstream reads it.}
 \item{method}{Character. Name of the variance decomposition method}
 }
 \value{
-Updated \code{BatchVariaData} object with appended variance record
+Updated \code{SummarizedExperiment} with appended variance record
 }
 \description{
 Stores the output of a variance decomposition method in the internal
-variance ledger of a \code{BatchVariaData} object. Each entry captures
+variance ledger held in the object's \code{metadata()}. Each entry captures
 the assay, model formula, method used, and resulting variance summary.
 }
 \details{

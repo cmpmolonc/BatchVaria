@@ -14,7 +14,8 @@ varianceChange(
 )
 }
 \arguments{
-\item{object}{BatchVariaData object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{term}{Model term to evaluate (e.g. "batch")}
 

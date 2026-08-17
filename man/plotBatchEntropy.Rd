@@ -7,7 +7,8 @@
 plotBatchEntropy(object, assayName = "raw", batchVar = "batch", k = 10)
 }
 \arguments{
-\item{object}{BatchVariaData object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{assayName}{Assay name}
 

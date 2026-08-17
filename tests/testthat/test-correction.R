@@ -19,7 +19,7 @@ test_that("runCorrection accepts variables to preserve", {
         method = "combat", batch = "batch", preserve = "group"
     )
 
-    expect_s4_class(out, "BatchVariaData")
+    expect_s4_class(out, "SummarizedExperiment")
     expect_true("raw_combat" %in% SummarizedExperiment::assayNames(out))
     expect_equal(dim(SummarizedExperiment::assay(out, "raw_combat")), c(60L, 8L))
 

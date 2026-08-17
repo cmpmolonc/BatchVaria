@@ -190,7 +190,7 @@ test_that("varianceTable works on objects with no assay named raw", {
         assays = list(counts = as.matrix(SummarizedExperiment::assay(bv, "raw"))),
         colData = SummarizedExperiment::colData(bv)
     )
-    obj <- profileVariance(BatchVariaData(se), ~batch, methods = "anova")
+    obj <- profileVariance(se, ~batch, methods = "anova")
 
     expect_warning(res <- varianceTable(obj), "No baseline assay")
 
@@ -210,7 +210,7 @@ test_that("the baseline is inferred from the correction lineage", {
         assays = list(counts = as.matrix(SummarizedExperiment::assay(bv, "raw"))),
         colData = SummarizedExperiment::colData(bv)
     )
-    obj <- BatchVariaData(se)
+    obj <- se
     obj <- runCorrection(obj, method = "combat", batch = "batch", assayName = "counts")
     obj <- profileVariance(obj, ~batch, methods = "anova")
 
@@ -243,7 +243,7 @@ test_that("varianceChange refuses without a baseline", {
         assays = list(counts = as.matrix(SummarizedExperiment::assay(bv, "raw"))),
         colData = SummarizedExperiment::colData(bv)
     )
-    obj <- profileVariance(BatchVariaData(se), ~batch, methods = "anova")
+    obj <- profileVariance(se, ~batch, methods = "anova")
 
     expect_error(
         suppressWarnings(varianceChange(obj, term = "residual")),
@@ -280,7 +280,7 @@ test_that("recordVariance enforces the result contract", {
     )
     expect_s4_class(
         recordVariance(bv, "raw", ~batch, ok, method = "anova"),
-        "BatchVariaData"
+        "SummarizedExperiment"
     )
 })
 

@@ -12,7 +12,8 @@ plotVarianceComposition(
 )
 }
 \arguments{
-\item{object}{A \code{BatchVariaData} object.}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{assays}{Character vector of assays to plot. Defaults to every assay
 profiled with \code{method}.}

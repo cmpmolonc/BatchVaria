@@ -118,7 +118,7 @@ test_that("assayVariance validates assay names", {
     bv <- exampleBatchVaria(nGenes = 100)
 
     expect_error(assayVariance(bv, assays = "nope"), "Assays not found")
-    expect_error(assayVariance(list()), "is\\(object, \"BatchVariaData\"\\)")
+    expect_error(assayVariance(list()), "must be a SummarizedExperiment")
 })
 
 

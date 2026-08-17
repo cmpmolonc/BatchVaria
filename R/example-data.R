@@ -1,8 +1,8 @@
 #' Example BatchVaria dataset with batch and biological effects
 #'
-#' Generates a synthetic SummarizedExperiment and converts it to
-#' a BatchVariaData object. Includes several pre-generated corrected
-#' assays for vignette demonstrations.
+#' Generates a synthetic \code{SummarizedExperiment} meeting BatchVaria's
+#' requirements (see \link{BatchVaria-requirements}), with several
+#' pre-generated corrected assays for vignette demonstrations.
 #'
 #' @examples
 #' set.seed(1)
@@ -26,7 +26,7 @@
 #'   4, giving a 2 x 2 design of two batches by two groups. The design is
 #'   balanced unless \code{confounding} is raised above zero.
 #'
-#' @return BatchVariaData object
+#' @return A \code{SummarizedExperiment}.
 #'
 #' @details
 #' The \code{raw_center} and \code{raw_scale} assays are retained as no-op
@@ -150,15 +150,10 @@ exampleBatchVaria <- function(
     # -----------------------------
     # Create SummarizedExperiment
     # -----------------------------
-    se <- SummarizedExperiment::SummarizedExperiment(
+    bv <- SummarizedExperiment::SummarizedExperiment(
         assays = list(raw = expr),
         colData = coldata
     )
-
-    # -----------------------------
-    # Convert to BatchVariaData
-    # -----------------------------
-    bv <- BatchVariaData(se)
 
     # -----------------------------
     # Add pre-generated corrections

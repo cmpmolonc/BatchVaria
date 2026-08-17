@@ -86,7 +86,7 @@ test_that("compareCorrelations requires at least two samples", {
     )
 
     expect_error(
-        compareCorrelations(BatchVariaData(se)),
+        compareCorrelations(se),
         "At least two samples"
     )
 })

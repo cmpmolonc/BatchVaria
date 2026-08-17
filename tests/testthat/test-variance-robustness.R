@@ -10,7 +10,7 @@ makeConstantFeatures <- function(bv, rows) {
         assays = list(raw = mat),
         colData = SummarizedExperiment::colData(bv)
     )
-    BatchVariaData(se)
+    se
 }
 
 
@@ -81,7 +81,7 @@ test_that("an assay with no usable features is skipped, not fatal", {
 
     expect_warning(
         res <- suppressMessages(
-            profileVariance(BatchVariaData(se), ~batch, methods = "anova")
+            profileVariance(se, ~batch, methods = "anova")
         ),
         "Skipping assay 'dead'"
     )
@@ -106,7 +106,7 @@ test_that("profileVariance errors when every attempt fails", {
     expect_error(
         suppressWarnings(
             suppressMessages(profileVariance(
-                BatchVariaData(se), ~batch,
+                se, ~batch,
                 methods = c("anova", "variancePartition")
             ))
         ),

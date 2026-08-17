@@ -7,7 +7,8 @@
 plotSampleDistance(object, assayName = "raw")
 }
 \arguments{
-\item{object}{BatchVariaData object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{assayName}{Character string specifying assay name
 (default \code{"raw"})}

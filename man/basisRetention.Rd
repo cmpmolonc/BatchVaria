@@ -7,7 +7,8 @@
 basisRetention(object, assays = NULL, reference = NULL)
 }
 \arguments{
-\item{object}{A \code{BatchVariaData} object.}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{assays}{Character vector of assays to measure (default: all).}
 

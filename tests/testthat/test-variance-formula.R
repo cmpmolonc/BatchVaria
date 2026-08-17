@@ -14,7 +14,7 @@ withBatchType <- function(bv, type) {
         assays = list(raw = as.matrix(SummarizedExperiment::assay(bv, "raw"))),
         colData = cd
     )
-    BatchVariaData(se)
+    se
 }
 
 

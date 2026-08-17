@@ -118,48 +118,57 @@ test_that("entries without a fingerprint do not warn", {
     expect_no_warning(varianceTable(bv[, 1:6]))
 })
 
-## ---- S4 validity -------------------------------------------------------
+## ---- requirements checking ---------------------------------------------
+##
+## These rules used to be an S4 validity method, which could only run at
+## construction and on an explicit validObject(). They now run at the
+## point of use, so the mutations below are caught by the next public
+## call rather than by nothing at all.
 
-test_that("validity accepts a clean object and a subset of one", {
+test_that("a clean object and a subset of one are accepted", {
     bv <- makeProfiled()
 
-    expect_true(validObject(bv))
+    expect_no_error(assayVariance(bv))
 
     ## Subsetting preserves every assay name and colData column, so the
     ## referential rules must not fire on it. Staleness is a separate
-    ## question answered elsewhere.
-    expect_true(validObject(bv[, 1:6]))
+    ## question answered elsewhere in this file.
+    expect_no_error(assayVariance(bv[, 1:6]))
 })
 
-test_that("validity rejects a malformed ledger", {
+test_that("a malformed ledger is rejected", {
     bv <- makeProfiled()
 
     b <- bv
     S4Vectors::metadata(b)$variance_history <- "not a ledger"
-    expect_error(validObject(b), "variance_history is not a list")
+    expect_error(assayVariance(b), "variance_history is not a list")
 
     b <- bv
     S4Vectors::metadata(b)$correction_history <- list(list(method = 42))
-    expect_error(validObject(b), "missing required field")
+    expect_error(assayVariance(b), "missing required field")
 
     b <- bv
     S4Vectors::metadata(b)$correction_history[[1]]$batch <- c("a", "b")
-    expect_error(validObject(b), "single character string")
+    expect_error(assayVariance(b), "single character string")
 })
 
-test_that("validity rejects references to absent assays and columns", {
+test_that("references to absent assays and columns are rejected", {
+    ## The case the old validity method could not see. Neither `assay<-`
+    ## nor `colData<-` invokes S4 validity, so before the check moved to
+    ## the point of use these objects passed through every function in
+    ## the package with a ledger describing things they no longer had.
     bv <- makeProfiled()
 
     b <- bv
     SummarizedExperiment::assay(b, "raw_combat") <- NULL
-    expect_error(validObject(b), "refers to assay")
+    expect_error(assayVariance(b), "refers to assay")
 
     b <- bv
     SummarizedExperiment::colData(b)$batch <- NULL
-    expect_error(validObject(b), "refers to colData column")
+    expect_error(assayVariance(b), "refers to colData column")
 })
 
-test_that("validity runs at construction", {
+test_that("a dangling reference is caught at the first public call", {
     se <- SummarizedExperiment::SummarizedExperiment(
         assays = list(raw = matrix(rnorm(40), 10, 4)),
         colData = S4Vectors::DataFrame(batch = rep(c("A", "B"), each = 2))
@@ -171,7 +180,6 @@ test_that("validity runs at construction", {
         )
     )
 
-    ## The constructor calls validObject(), so a dangling reference is
-    ## caught on the way in rather than at first read.
-    expect_error(BatchVariaData(se), "refers to assay")
+    expect_error(assayVariance(se), "refers to assay")
+    expect_error(profileVariance(se, ~batch), "refers to assay")
 })

@@ -7,7 +7,8 @@
 compareCorrelations(object, baseline = "raw", assays = NULL)
 }
 \arguments{
-\item{object}{BatchVariaData object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{baseline}{Baseline assay name. When \code{NULL} (the default) it
 is inferred from the correction ledger, falling back to \code{"raw"}.}

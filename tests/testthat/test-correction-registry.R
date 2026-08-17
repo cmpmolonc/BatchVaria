@@ -252,7 +252,7 @@ test_that("summary() shows what distinguishes two runs of one method", {
         newAssayName = "protected"
     )
 
-    out <- paste(capture.output(summary(bv)), collapse = "\n")
+    out <- paste(capture.output(provenance(bv)), collapse = "\n")
 
     ## without a preserve column the two rows are identical but for names
     expect_match(out, "preserve")

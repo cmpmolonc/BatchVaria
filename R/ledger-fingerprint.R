@@ -3,11 +3,14 @@
 ## A ledger entry describes a computation performed on an assay at a
 ## moment in time. The object it is attached to remains mutable
 ## afterwards: bv[, 1:6] subsets it, assay(bv, "x") <- m replaces a
-## matrix, colData(bv)$batch <- NULL removes a variable. None of these
-## invoke S4 validity -- neither `[`, `assay<-`, `colData<-` nor
-## `metadata<-` calls validObject() -- so a validity method cannot see
-## them, and the entry silently becomes a description of data that is no
-## longer present.
+## matrix, colData(bv)$batch <- NULL removes a variable. The entry
+## silently becomes a description of data that is no longer present.
+##
+## .check_se() does not catch this, and is not meant to. It asks whether
+## an entry still refers to assays and colData columns the object has,
+## and subsetting preserves every one of those names: an entry valid
+## before bv[, 1:6] is still valid after it. Validity and currency are
+## different questions, and this file answers the second.
 ##
 ## The failure is quiet and confident rather than loud: varianceTable()
 ## on a subset object returns percentages that look entirely reasonable
@@ -22,7 +25,7 @@
 ## Fingerprint of the assay a ledger entry describes.
 ##
 ## The hash covers content and dimnames both, so it detects an assay
-## replaced in place with a matrix of identical dimensions -- which
+## replaced in place with a matrix of identical dimensions - which
 ## dimensions alone cannot. Dimensions are stored beside it anyway, not
 ## for detection but so that a mismatch can be reported in terms a reader
 ## can act on: "computed on 20 samples, object now has 6" locates the

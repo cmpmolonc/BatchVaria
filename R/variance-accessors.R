@@ -1,6 +1,7 @@
 #' Access variance profiling history
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #'
 #' @return list of variance analysis blocks
 #'
@@ -41,7 +42,8 @@ varianceHistory <- function(object) {
 #' variance decomposition. Total variance is the sum of per-feature
 #' variances, i.e. the trace of the feature covariance matrix.
 #'
-#' @param object A \code{BatchVariaData} object.
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assays Character vector of assay names (default: all assays).
 #'
 #' @return A data.frame with columns \code{assay}, \code{total_variance},
@@ -72,13 +74,13 @@ varianceHistory <- function(object) {
 #'
 #' @examples
 #' set.seed(1)
-#' bv <- exampleBatchVaria(nGenes = 100)
+#' bv <- exampleBatchVaria(nGenes = 100, nSamples = 8)
 #' bv <- runCorrection(bv, method = "combat", batch = "batch")
 #' assayVariance(bv, assays = c("raw", "raw_combat"))
 #'
 #' @export
 assayVariance <- function(object, assays = NULL) {
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     available <- SummarizedExperiment::assayNames(object)
 
@@ -111,9 +113,10 @@ assayVariance <- function(object, assays = NULL) {
 #' Retrieve variance decomposition results
 #'
 #' Extracts variance decomposition results stored in the
-#' \code{BatchVariaData} object metadata.
+#' the object's \code{metadata()}.
 #'
-#' @param object A \code{BatchVariaData} object.
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assayName Optional assay name to filter results.
 #' @param method Optional method name to filter results.
 #'
@@ -128,7 +131,7 @@ assayVariance <- function(object, assays = NULL) {
 #'
 #' @export
 varianceResults <- function(object, assayName = NULL, method = NULL) {
-    stopifnot(is(object, "BatchVariaData"))
+    .check_se(object)
 
     vh <- S4Vectors::metadata(object)$variance_history
 

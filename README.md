@@ -18,16 +18,31 @@ unwanted variation from one that merely removed variation.
 
 # Installation
 
-BatchVaria is under review at Bioconductor. Once accepted:
+BatchVaria is under review at Bioconductor. Once accepted, install with
+[BiocManager](https://cran.r-project.org/package=BiocManager):
 
 ``` r
-# BiocManager::install("BatchVaria")
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
+BiocManager::install("BatchVaria")
+```
+
+For the development version:
+
+``` r
+BiocManager::install(version = "devel")
+BiocManager::install("BatchVaria")
 ```
 
 In the meantime, install from GitHub:
 
 ``` r
-# install.packages("remotes")
+if (!requireNamespace("remotes", quietly = TRUE)) {
+    install.packages("remotes")
+}
+
 remotes::install_github("cmpmolonc/BatchVaria")
 ```
 
@@ -112,7 +127,7 @@ of the original variance structure a correction preserved.
 
 # Workflow
 
-1.  Load expression data into a `BatchVariaData` container
+1.  Load expression data into a `SummarizedExperiment`
 2.  Apply corrections with `runCorrection()`, naming any variables to
     `preserve`
 3.  Decompose variance with `profileVariance()`

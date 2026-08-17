@@ -20,12 +20,12 @@ Intermediate values place a corresponding majority of each group in
 one batch.}
 }
 \value{
-BatchVariaData object
+A \code{SummarizedExperiment}.
 }
 \description{
-Generates a synthetic SummarizedExperiment and converts it to
-a BatchVariaData object. Includes several pre-generated corrected
-assays for vignette demonstrations.
+Generates a synthetic \code{SummarizedExperiment} meeting BatchVaria's
+requirements (see \link{BatchVaria-requirements}), with several
+pre-generated corrected assays for vignette demonstrations.
 }
 \details{
 The \code{raw_center} and \code{raw_scale} assays are retained as no-op

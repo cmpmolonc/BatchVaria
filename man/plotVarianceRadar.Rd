@@ -7,7 +7,8 @@
 plotVarianceRadar(object, assays = NULL, method = "anova", baseline = "raw")
 }
 \arguments{
-\item{object}{BatchVariaData object}
+\item{object}{A \code{SummarizedExperiment} meeting BatchVaria's
+requirements. See \link{BatchVaria-requirements}.}
 
 \item{assays}{Character vector of assays (default: all)}
 

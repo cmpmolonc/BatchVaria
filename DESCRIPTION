@@ -11,9 +11,9 @@ Authors@R:
     )
 Description: Evaluates batch correction in omics data by quantifying how a
     correction redistributes variance, not only whether it removes it.
-    Provides a SummarizedExperiment-based container that records correction
-    and variance-decomposition provenance, and harmonises both the batch
-    correction methods and the variance-profiling engines behind documented
+    Records correction and variance-decomposition provenance in the
+    metadata of an ordinary SummarizedExperiment, and harmonises both the
+    batch correction methods and the variance-profiling engines behind documented
     contracts, so that either set can be extended without modifying the
     package. Variance fractions are compositional, so
     removing variance associated with one term inflates the fraction
@@ -46,7 +46,6 @@ Suggests:
     limma
 VignetteBuilder: knitr
 Imports:
-    BiocGenerics,
     S4Vectors,
     rlang,
     methods,
@@ -59,8 +58,7 @@ Imports:
     tidyr,
     tidyselect,
     dplyr,
-    grid,
-    utils
+    grid
 Config/testthat/edition: 3
 URL: https://github.com/cmpmolonc/BatchVaria
 BugReports: https://github.com/cmpmolonc/BatchVaria/issues

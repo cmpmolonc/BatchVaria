@@ -259,7 +259,7 @@ test_that("plotVarianceComposition warns on negative segments", {
         assays = list(raw = mat), colData = cd
     )
     obj <- suppressWarnings(
-        profileVariance(BatchVariaData(se), ~ a + b, methods = "anova")
+        profileVariance(se, ~ a + b, methods = "anova")
     )
 
     res <- varianceResults(obj)

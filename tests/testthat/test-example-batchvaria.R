@@ -1,6 +1,6 @@
 test_that("exampleBatchVaria returns valid object", {
     bv <- exampleBatchVaria()
-    expect_s4_class(bv, "BatchVariaData")
+    expect_s4_class(bv, "SummarizedExperiment")
     expect_true("raw" %in% SummarizedExperiment::assayNames(bv))
     expect_true(ncol(SummarizedExperiment::assay(bv, "raw")) > 0)
 })

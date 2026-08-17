@@ -5,7 +5,8 @@
 #' one or more corrected assays, including variance decomposition,
 #' PCA structure, and sample correlation analysis.
 #'
-#' @param object A \code{BatchVariaData} object.
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param baseline Character string specifying the reference assay
 #'   (default \code{"raw"}).
 #' @param diagnostics Character vector of diagnostics to compute.
@@ -43,9 +44,7 @@ evaluateCorrections <- function(
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     available_assays <- SummarizedExperiment::assayNames(object)
 
@@ -158,7 +157,8 @@ evaluateCorrections <- function(
 #' Calculates the change in variance explained by each model term
 #' for one or more assays relative to a baseline assay.
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assays Character vector of assay names (default: all assays)
 #' @param method Variance estimation method
 #' @param formula Model formula to compare under. Required when the chosen
@@ -189,9 +189,7 @@ varianceDelta <- function(
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     ## Deltas are only meaningful between results from the same model, so
     ## resolve one formula for every assay rather than letting each fall
@@ -306,7 +304,8 @@ varianceDelta <- function(
 #' Computes the proportion of variance explained by principal components
 #' for one or more assays.
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param assays Character vector of assays (default: all assays)
 #' @param nPCs Number of principal components to return (default: 3)
 #' @param reference Assay whose PCA basis the others are projected onto.
@@ -359,9 +358,7 @@ comparePCA <- function(
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     available_assays <- SummarizedExperiment::assayNames(object)
 
@@ -423,7 +420,8 @@ comparePCA <- function(
 #' Computes the mean absolute difference in sample–sample correlation
 #' matrices between a baseline assay and one or more comparison assays.
 #'
-#' @param object BatchVariaData object
+#' @param object A \code{SummarizedExperiment} meeting BatchVaria's
+#'   requirements. See \link{BatchVaria-requirements}.
 #' @param baseline Baseline assay name. When \code{NULL} (the default) it
 #'   is inferred from the correction ledger, falling back to \code{"raw"}.
 #' @param assays Character vector of assays to compare (default: all assays)
@@ -453,9 +451,7 @@ compareCorrelations <- function(
     ## -----------------------------
     ## Input validation
     ## -----------------------------
-    if (!is(object, "BatchVariaData")) {
-        stop("object must be a BatchVariaData instance")
-    }
+    .check_se(object)
 
     available_assays <- SummarizedExperiment::assayNames(object)
 
