@@ -178,6 +178,11 @@
 #' is when a function is asked to work with it, which is the only moment
 #' the answer matters.
 #'
+#' @return No return value. This page documents the requirements
+#'   BatchVaria places on a \code{SummarizedExperiment} rather than a
+#'   function; \code{\link{exampleBatchVaria}} returns an object that
+#'   meets them.
+#'
 #' @name BatchVaria-requirements
 #' @seealso \code{\link{BatchVaria}} for an overview of the package,
 #'   \code{\link{provenance}} for reading the ledgers, and

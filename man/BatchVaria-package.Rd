@@ -14,10 +14,8 @@ share the design cannot attribute to any single term, and reports what
 the correction did to the structure of the data as well as to the
 batch term.
 }
-\section{Bring your own SummarizedExperiment}{
-
-There is no container class. Every function takes a
-\code{SummarizedExperiment}: expression matrices as assays, sample
+\section{Every function takes a ' \code{SummarizedExperiment}}{
+ expression matrices as assays, sample
 annotation in \code{colData}, and the two analysis ledgers in
 \code{metadata()}. The ledgers are optional and are written by
 \code{\link{runCorrection}} and \code{\link{profileVariance}}, so an

@@ -3,6 +3,12 @@
 \name{BatchVaria-requirements}
 \alias{BatchVaria-requirements}
 \title{Requirements BatchVaria places on a SummarizedExperiment}
+\value{
+No return value. This page documents the requirements
+BatchVaria places on a \code{SummarizedExperiment} rather than a
+function; \code{\link{exampleBatchVaria}} returns an object that
+meets them.
+}
 \description{
 Every public function in the package opens by calling the internal
 \code{.check_se()}, which is the whole of what BatchVaria requires of

@@ -34,7 +34,7 @@ PCA can draw: a correction that redistributes variance \emph{within} the
 structure already present keeps retention near one, while a correction
 that introduces new structure drives it down. On the example data ComBat
 retains about 0.99 while an assay distorted with added noise retains
-about 0.41 -- both look like changed variance in a per-assay
+about 0.41 - both look like changed variance in a per-assay
 decomposition, but only the second has moved variance into directions
 the original data did not occupy.
 

@@ -47,9 +47,9 @@ from the variance ledger, for a single method and model formula.
 }
 \details{
 A variance table describes one decomposition. Results from different
-engines are not commensurable -- \code{pca} reports variance along
+engines are not commensurable - \code{pca} reports variance along
 principal axes while \code{anova} and \code{variancePartition} report
-variance attributable to model terms -- so stacking them in a single
+variance attributable to model terms - so stacking them in a single
 table produces columns that sum to well over 100\\%. Likewise, the same
 assay profiled under two formulas yields two different decompositions.
 

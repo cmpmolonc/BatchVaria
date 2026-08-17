@@ -29,7 +29,7 @@ ledger unprocessed; the correction ledger is
 The correction table reports \code{preserve} and \code{no_op} for each
 step. \code{preserve} is what distinguishes two runs of one method on
 one assay, and \code{no_op} marks a correction that returned an assay
-indistinguishable from its input -- a condition that is easy to miss
+indistinguishable from its input - a condition that is easy to miss
 on the console and would otherwise be invisible once the session that
 produced it has ended.
 }
